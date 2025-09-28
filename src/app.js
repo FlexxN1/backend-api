@@ -1,40 +1,28 @@
 const express = require("express");
-const pool = require("./db");
+const cors = require("cors");
+
+const usuariosRoutes = require("./routes/usuarios");
+const productosRoutes = require("./routes/productos");
+const comprasRoutes = require("./routes/compras");
+const detalleRoutes = require("./routes/detalleCompras");
 
 const app = express();
 
 // Middlewares
+app.use(cors());
 app.use(express.json());
 
-// Ruta de prueba
+// Rutas
 app.get("/", (req, res) => {
-    res.send("🚀 API funcionando correctamente");
+    res.send("🚀 API BiteBack funcionando");
 });
 
-// Ping DB
-app.get("/ping", async (req, res) => {
-    try {
-        const [result] = await pool.query(`SELECT "pong" as msg`);
-        res.json(result[0]);
-    } catch (err) {
-        console.error("❌ Error en /ping:", err);
-        res.status(500).json({ error: "Error en /ping" });
-    }
-});
+app.use("/usuarios", usuariosRoutes);
+app.use("/productos", productosRoutes);
+app.use("/compras", comprasRoutes);
+app.use("/detalle-compras", detalleRoutes);
 
-// Clientes (ejemplo)
-app.get("/usuarios", async (req, res) => {
-    try {
-        const [rows] = await pool.query("SELECT * FROM usuarios");
-        res.json(rows);
-    } catch (err) {
-        console.error("❌ Error en /usuarios:", err);
-        res.status(500).json({ error: "Error al obtener clientes" });
-    }
-});
-
-// 🚀 Usar el puerto que da la plataforma
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`✅ Server escuchando en puerto ${PORT}`);
+    console.log(`✅ API corriendo en puerto ${PORT}`);
 });
