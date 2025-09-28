@@ -23,12 +23,12 @@ app.get("/ping", async (req, res) => {
 });
 
 // Clientes (ejemplo)
-app.get("/clientes", async (req, res) => {
+app.get("/usuarios", async (req, res) => {
     try {
-        const [rows] = await pool.query("SELECT * FROM clientes");
+        const [rows] = await pool.query("SELECT * FROM usuarios");
         res.json(rows);
     } catch (err) {
-        console.error("❌ Error en /clientes:", err);
+        console.error("❌ Error en /usuarios:", err);
         res.status(500).json({ error: "Error al obtener clientes" });
     }
 });
