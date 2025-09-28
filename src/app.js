@@ -7,12 +7,14 @@ require("dotenv").config();
 const app = express();
 
 // ===== Rutas =====
-const authRoutes = require(path.join(__dirname, "routes", "auth"));
-const productosRoutes = require(path.join(__dirname, "routes", "productos"));
-const productsAuthRoutes = require(path.join(__dirname, "routes", "productsAuth"));
-const usuariosRoutes = require(path.join(__dirname, "routes", "usuarios"));
-const comprasRoutes = require(path.join(__dirname, "routes", "compras"));
-const detalleComprasRoutes = require(path.join(__dirname, "routes", "detalleCompras"));
+// app.js
+const authRoutes = require('./routes/auth');            // Bien
+const usuariosRoutes = require('./routes/usuarios');    // Bien
+const productosRoutes = require('./routes/productos');  // Bien
+const productsAuthRoutes = require('./routes/productsAuth');
+const comprasRoutes = require('./routes/compras');
+const detalleComprasRoutes = require('./routes/detalleCompras');
+
 
 // ===== Middlewares =====
 app.use(cors());
