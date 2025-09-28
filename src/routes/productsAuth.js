@@ -39,3 +39,5 @@ router.post('/', auth(['Administrador']), async (req, res) => {
         res.status(500).json({ error: 'Error servidor' });
     }
 });
+
+module.exports = router
