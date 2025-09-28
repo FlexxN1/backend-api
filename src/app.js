@@ -1,23 +1,24 @@
 // src/app.js
 const express = require("express");
 const cors = require("cors");
+const path = require("path");
 require("dotenv").config();
-
-// Rutas
-const authRoutes = require("./routes/auth");
-const productosRoutes = require("./routes/productos");
-const productsAuthRoutes = require("./routes/productsAuth");
-const usuariosRoutes = require("./routes/usuarios");
-const comprasRoutes = require("./routes/compras");
-const detalleComprasRoutes = require("./routes/detalleCompras");
 
 const app = express();
 
-// ===== Middlewares =====
-app.use(cors()); // habilitar CORS
-app.use(express.json()); // parsear JSON
-
 // ===== Rutas =====
+const authRoutes = require(path.join(__dirname, "routes", "auth"));
+const productosRoutes = require(path.join(__dirname, "routes", "productos"));
+const productsAuthRoutes = require(path.join(__dirname, "routes", "productsAuth"));
+const usuariosRoutes = require(path.join(__dirname, "routes", "usuarios"));
+const comprasRoutes = require(path.join(__dirname, "routes", "compras"));
+const detalleComprasRoutes = require(path.join(__dirname, "routes", "detalleCompras"));
+
+// ===== Middlewares =====
+app.use(cors());
+app.use(express.json());
+
+// ===== Rutas principales =====
 app.get("/", (req, res) => {
     res.send("🚀 API funcionando correctamente");
 });
