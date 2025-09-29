@@ -58,26 +58,30 @@ router.get("/:id", async (req, res) => {
 // =============================
 // POST crear compra con detalles
 // POST crear compra con detalles
+// POST crear compra con detalles
 router.post("/", async (req, res) => {
-    const { usuario_id, total, ciudad, direccion, telefono, metodo_pago, productos } = req.body;
+    const { usuario_id, total, ciudad, direccion, telefono, metodo_pago, productos, estado_pago } = req.body;
 
     const conn = await pool.getConnection();
     await conn.beginTransaction();
 
     try {
-        // Insertar la compra en la tabla compras
+        // Insertar la compra
         const [compraResult] = await conn.query(
-            "INSERT INTO compras (usuario_id, total, ciudad, direccion, telefono, metodo_pago, estado_pago) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            [usuario_id, total, ciudad, direccion, telefono, metodo_pago, "pendiente"]
+            `INSERT INTO compras (usuario_id, total, ciudad, direccion, telefono, metodo_pago, estado_pago)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [usuario_id, total, ciudad, direccion, telefono, metodo_pago, estado_pago || "pendiente"]
         );
 
         const compraId = compraResult.insertId;
 
-        // Insertar cada producto en detalle_compras
+        // Insertar detalles de la compra
         for (let p of productos) {
             await conn.query(
-                "INSERT INTO detalle_compras (compra_id, producto_id, cantidad, precio_unitario, estado_envio) VALUES (?, ?, ?, ?, ?)",
-                [compraId, p.id, p.cantidad, p.precio, "Pendiente"]
+                `INSERT INTO detalle_compras 
+                (compra_id, producto_id, cantidad, precio_unitario, estado_envio) 
+                 VALUES (?, ?, ?, ?, ?)`,
+                [compraId, p.id, p.cantidad || 1, p.precio, "Pendiente"]
             );
         }
 
@@ -91,6 +95,7 @@ router.post("/", async (req, res) => {
         conn.release();
     }
 });
+
 
 
 
