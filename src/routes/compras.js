@@ -1,11 +1,11 @@
 const express = require("express");
 const pool = require("../db");
+const { io } = require("../app"); // 👈 importar io para emitir eventos
 const router = express.Router();
 
 // =============================
 // GET todas las compras
 // =============================
-// GET compras con detalle de productos y usuarios
 router.get("/", async (req, res) => {
     try {
         const [rows] = await pool.query(`
@@ -38,7 +38,6 @@ router.get("/", async (req, res) => {
     }
 });
 
-
 // =============================
 // GET compra por ID
 // =============================
@@ -54,10 +53,8 @@ router.get("/:id", async (req, res) => {
 });
 
 // =============================
-// POST crear compra
-// =============================
-
 // POST crear compra con detalles
+// =============================
 router.post("/", async (req, res) => {
     const { usuario_id, total, ciudad, direccion, telefono, metodo_pago, productos, estado_pago } = req.body;
 
@@ -76,21 +73,14 @@ router.post("/", async (req, res) => {
 
         // 2. Procesar cada producto comprado
         for (let p of productos) {
-            // Consultar stock con FOR UPDATE (bloquea fila mientras dura la transacción)
             const [[producto]] = await conn.query(
                 "SELECT stock FROM productos WHERE id=? FOR UPDATE",
                 [p.id]
             );
 
-            if (!producto) {
-                throw new Error(`❌ Producto con id ${p.id} no existe`);
-            }
+            if (!producto) throw new Error(`❌ Producto con id ${p.id} no existe`);
+            if (producto.stock < p.cantidad) throw new Error(`❌ Stock insuficiente para el producto ID ${p.id}`);
 
-            if (producto.stock < p.cantidad) {
-                throw new Error(`❌ Stock insuficiente para el producto ID ${p.id}`);
-            }
-
-            // Insertar detalle de compra
             await conn.query(
                 `INSERT INTO detalle_compras 
                 (compra_id, producto_id, cantidad, precio_unitario, estado_envio) 
@@ -98,14 +88,12 @@ router.post("/", async (req, res) => {
                 [compraId, p.id, p.cantidad || 1, p.precio, "Pendiente"]
             );
 
-            // Descontar stock
             await conn.query(
                 "UPDATE productos SET stock = stock - ? WHERE id=?",
                 [p.cantidad, p.id]
             );
         }
 
-        // 3. Confirmar transacción
         await conn.commit();
         res.json({ message: "✅ Compra creada con éxito", compra_id: compraId });
 
@@ -117,8 +105,6 @@ router.post("/", async (req, res) => {
         conn.release();
     }
 });
-
-
 
 // =============================
 // PUT actualizar compra
@@ -183,9 +169,19 @@ router.put("/detalle/:id/estado-envio", async (req, res) => {
             "UPDATE detalle_compras SET estado_envio=? WHERE id=?",
             [estado_envio, id]
         );
-        if (result.affectedRows === 0) return res.status(404).json({ error: "Detalle no encontrado" });
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: "Detalle no encontrado" });
+        }
+
+        // 🚀 Emitir evento para que el frontend reciba la actualización en tiempo real
+        io.emit("estadoEnvioActualizado", {
+            detalleId: parseInt(id),
+            nuevoEstado: estado_envio,
+        });
+
         res.json({ message: "✅ Estado de envío actualizado" });
-    } catch {
+    } catch (err) {
+        console.error("❌ Error al actualizar estado de envío:", err);
         res.status(500).json({ error: "Error al actualizar estado de envío" });
     }
 });

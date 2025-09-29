@@ -7,32 +7,14 @@ const swaggerSpec = require("./swagger");
 
 const app = express();
 
-// middlewares
+// =============================
+// Middlewares
+// =============================
 app.use(cors());
 app.use(express.json());
 
 // Documentación Swagger
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec, { explorer: true }));
-
-// rutas
-const authRoutes = require('./routes/auth');
-const usuariosRoutes = require('./routes/usuarios');
-const productosRoutes = require('./routes/productos');
-const productsAuthRoutes = require('./routes/productsAuth');
-const comprasRoutes = require('./routes/compras');
-const detalleComprasRoutes = require('./routes/detalleCompras');
-
-app.get("/", (req, res) => res.send("🚀 API funcionando correctamente"));
-
-app.use("/auth", authRoutes);
-app.use("/productos", productosRoutes);
-app.use("/productos-auth", productsAuthRoutes);
-app.use("/usuarios", usuariosRoutes);
-app.use("/compras", comprasRoutes);
-app.use("/detalle-compras", detalleComprasRoutes);
-
-// 404
-app.use((req, res) => res.status(404).json({ error: "Ruta no encontrada" }));
 
 // =============================
 // Socket.IO setup
@@ -44,9 +26,15 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
     cors: {
-        origin: "*", // ⚠️ en producción pon aquí tu frontend (ej: "http://localhost:5173")
+        origin: "*", // ⚠️ en producción usa tu frontend (ej: "http://localhost:5173")
         methods: ["GET", "POST", "PUT", "DELETE"]
     }
+});
+
+// 🔥 Middleware: inyectar io en req
+app.use((req, res, next) => {
+    req.io = io;
+    next();
 });
 
 // Evento de conexión
@@ -58,7 +46,31 @@ io.on("connection", (socket) => {
     });
 });
 
-// Exportamos io para usarlo en rutas como compras.js
+// =============================
+// Rutas
+// =============================
+const authRoutes = require("./routes/auth");
+const usuariosRoutes = require("./routes/usuarios");
+const productosRoutes = require("./routes/productos");
+const productsAuthRoutes = require("./routes/productsAuth");
+const comprasRoutes = require("./routes/compras");
+const detalleComprasRoutes = require("./routes/detalleCompras");
+
+app.get("/", (req, res) => res.send("🚀 API funcionando correctamente"));
+
+app.use("/auth", authRoutes);
+app.use("/productos", productosRoutes);
+app.use("/productos-auth", productsAuthRoutes);
+app.use("/usuarios", usuariosRoutes);
+app.use("/compras", comprasRoutes);
+app.use("/detalle-compras", detalleComprasRoutes);
+
+// =============================
+// 404
+// =============================
+app.use((req, res) => res.status(404).json({ error: "Ruta no encontrada" }));
+
+// Exportamos io por si lo necesitas en otro módulo
 module.exports = { app, server, io };
 
 // =============================

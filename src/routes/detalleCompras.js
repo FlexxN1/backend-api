@@ -27,13 +27,44 @@ router.get("/:id", async (req, res) => {
 // POST crear detalle
 router.post("/", async (req, res) => {
     const { compra_id, producto_id, cantidad, precio_unitario } = req.body;
+
     try {
+        // 1. Insertar el detalle de la compra
         const [result] = await pool.query(
             "INSERT INTO detalle_compras (compra_id, producto_id, cantidad, precio_unitario) VALUES (?, ?, ?, ?)",
             [compra_id, producto_id, cantidad, precio_unitario]
         );
-        res.json({ id: result.insertId, compra_id, producto_id, cantidad });
-    } catch {
+
+        // 2. Descontar el stock en la tabla productos
+        const [updateResult] = await pool.query(
+            "UPDATE productos SET stock = stock - ? WHERE id = ? AND stock >= ?",
+            [cantidad, producto_id, cantidad]
+        );
+
+        if (updateResult.affectedRows === 0) {
+            return res.status(400).json({ error: "No hay stock suficiente para este producto" });
+        }
+
+        // 3. Obtener el nuevo stock
+        const [producto] = await pool.query("SELECT id, stock FROM productos WHERE id = ?", [producto_id]);
+
+        // 4. Emitir evento por WebSocket
+        const { io } = require("../app"); // 👈 importamos io
+        io.emit("stockActualizado", {
+            productoId: producto[0].id,
+            nuevoStock: producto[0].stock
+        });
+
+        // 5. Respuesta
+        res.json({
+            id: result.insertId,
+            compra_id,
+            producto_id,
+            cantidad,
+            nuevoStock: producto[0].stock
+        });
+    } catch (err) {
+        console.error(err);
         res.status(500).json({ error: "Error al crear detalle" });
     }
 });
