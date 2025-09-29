@@ -4,7 +4,7 @@ const { io } = require("../app"); // 👈 importar io para emitir eventos
 const router = express.Router();
 
 // =============================
-// GET todas las compras
+// GET todas las compras (agrupadas con productos)
 // =============================
 router.get("/", async (req, res) => {
     try {
@@ -13,6 +13,7 @@ router.get("/", async (req, res) => {
                 c.id AS compra_id,
                 c.usuario_id,
                 u.nombre AS usuario_nombre,
+                DATE_FORMAT(c.fecha_compra, '%Y-%m-%d %H:%i:%s') AS fecha_compra,
                 c.ciudad,
                 c.direccion,
                 c.telefono,
@@ -31,7 +32,37 @@ router.get("/", async (req, res) => {
             INNER JOIN productos p ON dc.producto_id = p.id
         `);
 
-        res.json(rows);
+        // 🔑 Agrupar compras en objetos con productos[]
+        const compras = rows.reduce((acc, row) => {
+            let compra = acc.find(c => c.compra_id === row.compra_id);
+            if (!compra) {
+                compra = {
+                    compra_id: row.compra_id,
+                    usuario_id: row.usuario_id,
+                    usuario_nombre: row.usuario_nombre,
+                    fecha_compra: row.fecha_compra,
+                    ciudad: row.ciudad,
+                    direccion: row.direccion,
+                    telefono: row.telefono,
+                    total: row.total,
+                    estado_pago: row.estado_pago,
+                    productos: []
+                };
+                acc.push(compra);
+            }
+            compra.productos.push({
+                detalle_id: row.detalle_id,
+                producto_id: row.producto_id,
+                nombre: row.producto_nombre,
+                cantidad: row.cantidad,
+                precio_unitario: row.precio_unitario,
+                estado_envio: row.estado_envio,
+                vendedor_id: row.vendedor_id
+            });
+            return acc;
+        }, []);
+
+        res.json(compras);
     } catch (err) {
         console.error("❌ Error en GET /compras:", err);
         res.status(500).json({ error: "Error al obtener compras" });
@@ -39,15 +70,64 @@ router.get("/", async (req, res) => {
 });
 
 // =============================
-// GET compra por ID
+// GET compra por ID (con productos)
 // =============================
 router.get("/:id", async (req, res) => {
     const { id } = req.params;
     try {
-        const [rows] = await pool.query("SELECT * FROM compras WHERE id=?", [id]);
-        if (rows.length === 0) return res.status(404).json({ error: "Compra no encontrada" });
-        res.json(rows[0]);
-    } catch {
+        const [rows] = await pool.query(`
+            SELECT 
+                c.id AS compra_id,
+                c.usuario_id,
+                u.nombre AS usuario_nombre,
+                DATE_FORMAT(c.fecha_compra, '%Y-%m-%d %H:%i:%s') AS fecha_compra,
+                c.ciudad,
+                c.direccion,
+                c.telefono,
+                c.total,
+                c.estado_pago,
+                dc.id AS detalle_id,
+                dc.producto_id,
+                p.nombre AS producto_nombre,
+                p.vendedor_id,
+                dc.cantidad,
+                dc.precio_unitario,
+                dc.estado_envio
+            FROM compras c
+            INNER JOIN usuarios u ON c.usuario_id = u.id
+            INNER JOIN detalle_compras dc ON c.id = dc.compra_id
+            INNER JOIN productos p ON dc.producto_id = p.id
+            WHERE c.id = ?
+        `, [id]);
+
+        if (rows.length === 0) {
+            return res.status(404).json({ error: "Compra no encontrada" });
+        }
+
+        const compra = {
+            compra_id: rows[0].compra_id,
+            usuario_id: rows[0].usuario_id,
+            usuario_nombre: rows[0].usuario_nombre,
+            fecha_compra: rows[0].fecha_compra,
+            ciudad: rows[0].ciudad,
+            direccion: rows[0].direccion,
+            telefono: rows[0].telefono,
+            total: rows[0].total,
+            estado_pago: rows[0].estado_pago,
+            productos: rows.map(r => ({
+                detalle_id: r.detalle_id,
+                producto_id: r.producto_id,
+                nombre: r.producto_nombre,
+                cantidad: r.cantidad,
+                precio_unitario: r.precio_unitario,
+                estado_envio: r.estado_envio,
+                vendedor_id: r.vendedor_id
+            }))
+        };
+
+        res.json(compra);
+    } catch (err) {
+        console.error("❌ Error en GET /compras/:id:", err);
         res.status(500).json({ error: "Error al obtener compra" });
     }
 });
@@ -62,7 +142,6 @@ router.post("/", async (req, res) => {
     await conn.beginTransaction();
 
     try {
-        // 1. Insertar la compra
         const [compraResult] = await conn.query(
             `INSERT INTO compras (usuario_id, total, ciudad, direccion, telefono, metodo_pago, estado_pago)
              VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -71,7 +150,6 @@ router.post("/", async (req, res) => {
 
         const compraId = compraResult.insertId;
 
-        // 2. Procesar cada producto comprado
         for (let p of productos) {
             const [[producto]] = await conn.query(
                 "SELECT stock FROM productos WHERE id=? FOR UPDATE",
@@ -162,7 +240,7 @@ router.put("/:id/estado-pago", async (req, res) => {
 // PUT actualizar estado de envío
 // =============================
 router.put("/detalle/:id/estado-envio", async (req, res) => {
-    const { id } = req.params; // id del detalle_compras
+    const { id } = req.params;
     const { estado_envio } = req.body;
     try {
         const [result] = await pool.query(
@@ -173,7 +251,6 @@ router.put("/detalle/:id/estado-envio", async (req, res) => {
             return res.status(404).json({ error: "Detalle no encontrado" });
         }
 
-        // 🚀 Emitir evento para que el frontend reciba la actualización en tiempo real
         io.emit("estadoEnvioActualizado", {
             detalleId: parseInt(id),
             nuevoEstado: estado_envio,
