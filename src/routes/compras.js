@@ -2,7 +2,9 @@ const express = require("express");
 const pool = require("../db");
 const router = express.Router();
 
-// GET compras
+// =============================
+// GET todas las compras
+// =============================
 router.get("/", async (req, res) => {
     try {
         const [rows] = await pool.query("SELECT * FROM compras");
@@ -12,7 +14,9 @@ router.get("/", async (req, res) => {
     }
 });
 
+// =============================
 // GET compra por ID
+// =============================
 router.get("/:id", async (req, res) => {
     const { id } = req.params;
     try {
@@ -24,28 +28,43 @@ router.get("/:id", async (req, res) => {
     }
 });
 
+// =============================
 // POST crear compra
+// =============================
 router.post("/", async (req, res) => {
-    const { usuario_id, total, ciudad, direccion, telefono, estado } = req.body;
+    const { usuario_id, total, ciudad, direccion, telefono, metodo_pago } = req.body;
     try {
         const [result] = await pool.query(
-            "INSERT INTO compras (usuario_id, total, ciudad, direccion, telefono, estado) VALUES (?, ?, ?, ?, ?, ?)",
-            [usuario_id, total, ciudad, direccion, telefono, estado || "pendiente"]
+            `INSERT INTO compras (usuario_id, total, ciudad, direccion, telefono, metodo_pago, estado_pago) 
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [usuario_id, total, ciudad, direccion, telefono, metodo_pago || "tarjeta", "pendiente"]
         );
-        res.json({ id: result.insertId, usuario_id, total });
-    } catch {
+
+        res.json({
+            id: result.insertId,
+            usuario_id,
+            total,
+            metodo_pago: metodo_pago || "tarjeta",
+            estado_pago: "pendiente"
+        });
+    } catch (err) {
+        console.error("❌ Error creando compra:", err);
         res.status(500).json({ error: "Error al crear compra" });
     }
 });
 
+// =============================
 // PUT actualizar compra
+// =============================
 router.put("/:id", async (req, res) => {
     const { id } = req.params;
-    const { total, ciudad, direccion, telefono, estado } = req.body;
+    const { total, ciudad, direccion, telefono, metodo_pago, estado_pago } = req.body;
     try {
         const [result] = await pool.query(
-            "UPDATE compras SET total=?, ciudad=?, direccion=?, telefono=?, estado=? WHERE id=?",
-            [total, ciudad, direccion, telefono, estado, id]
+            `UPDATE compras 
+             SET total=?, ciudad=?, direccion=?, telefono=?, metodo_pago=?, estado_pago=? 
+             WHERE id=?`,
+            [total, ciudad, direccion, telefono, metodo_pago, estado_pago, id]
         );
         if (result.affectedRows === 0) return res.status(404).json({ error: "Compra no encontrada" });
         res.json({ message: "Compra actualizada" });
@@ -54,7 +73,9 @@ router.put("/:id", async (req, res) => {
     }
 });
 
-// DELETE compra
+// =============================
+// DELETE eliminar compra
+// =============================
 router.delete("/:id", async (req, res) => {
     const { id } = req.params;
     try {
@@ -66,7 +87,9 @@ router.delete("/:id", async (req, res) => {
     }
 });
 
+// =============================
 // PUT actualizar estado de pago
+// =============================
 router.put("/:id/estado-pago", async (req, res) => {
     const { id } = req.params;
     const { estado_pago } = req.body;
@@ -82,7 +105,9 @@ router.put("/:id/estado-pago", async (req, res) => {
     }
 });
 
-// PUT actualizar estado de envío de un producto en el detalle
+// =============================
+// PUT actualizar estado de envío
+// =============================
 router.put("/detalle/:id/estado-envio", async (req, res) => {
     const { id } = req.params; // id del detalle_compras
     const { estado_envio } = req.body;
@@ -97,7 +122,5 @@ router.put("/detalle/:id/estado-envio", async (req, res) => {
         res.status(500).json({ error: "Error al actualizar estado de envío" });
     }
 });
-
-
 
 module.exports = router;
