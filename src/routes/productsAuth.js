@@ -42,7 +42,18 @@ router.post("/", auth(["Administrador"]), async (req, res) => {
             [nombre, descripcion || null, precio, imagen_url || null, stock, vendedor_id]
         );
 
-        res.json({ id: r.insertId, message: "Producto creado" });
+        const nuevoId = r.insertId;
+
+        // 🔥 Recuperamos el producto recién creado con el vendedor
+        const [rows] = await pool.execute(
+            `SELECT p.*, u.nombre as vendedor 
+             FROM productos p
+             LEFT JOIN usuarios u ON p.vendedor_id = u.id
+             WHERE p.id = ?`,
+            [nuevoId]
+        );
+
+        res.json(rows[0]); // enviamos el producto completo
     } catch (err) {
         console.error("❌ Error en POST /productos-auth:", err);
         res.status(500).json({ error: "Error servidor" });
@@ -68,7 +79,7 @@ router.delete("/:id", auth(["Administrador"]), async (req, res) => {
 
         await pool.execute("DELETE FROM productos WHERE id = ?", [id]);
 
-        res.json({ message: "Producto eliminado correctamente" });
+        res.json({ id, message: "Producto eliminado correctamente" });
     } catch (err) {
         console.error("❌ Error en DELETE /productos-auth/:id:", err);
         res.status(500).json({ error: "Error servidor" });
