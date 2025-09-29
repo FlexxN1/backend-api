@@ -56,8 +56,7 @@ router.get("/:id", async (req, res) => {
 // =============================
 // POST crear compra
 // =============================
-// POST crear compra con detalles
-// POST crear compra con detalles
+
 // POST crear compra con detalles
 router.post("/", async (req, res) => {
     const { usuario_id, total, ciudad, direccion, telefono, metodo_pago, productos, estado_pago } = req.body;
@@ -66,7 +65,7 @@ router.post("/", async (req, res) => {
     await conn.beginTransaction();
 
     try {
-        // Insertar la compra
+        // 1. Insertar la compra
         const [compraResult] = await conn.query(
             `INSERT INTO compras (usuario_id, total, ciudad, direccion, telefono, metodo_pago, estado_pago)
              VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -75,27 +74,49 @@ router.post("/", async (req, res) => {
 
         const compraId = compraResult.insertId;
 
-        // Insertar detalles de la compra
+        // 2. Procesar cada producto comprado
         for (let p of productos) {
+            // Consultar stock con FOR UPDATE (bloquea fila mientras dura la transacción)
+            const [[producto]] = await conn.query(
+                "SELECT stock FROM productos WHERE id=? FOR UPDATE",
+                [p.id]
+            );
+
+            if (!producto) {
+                throw new Error(`❌ Producto con id ${p.id} no existe`);
+            }
+
+            if (producto.stock < p.cantidad) {
+                throw new Error(`❌ Stock insuficiente para el producto ID ${p.id}`);
+            }
+
+            // Insertar detalle de compra
             await conn.query(
                 `INSERT INTO detalle_compras 
                 (compra_id, producto_id, cantidad, precio_unitario, estado_envio) 
-                 VALUES (?, ?, ?, ?, ?)`,
+                VALUES (?, ?, ?, ?, ?)`,
                 [compraId, p.id, p.cantidad || 1, p.precio, "Pendiente"]
+            );
+
+            // Descontar stock
+            await conn.query(
+                "UPDATE productos SET stock = stock - ? WHERE id=?",
+                [p.cantidad, p.id]
             );
         }
 
+        // 3. Confirmar transacción
         await conn.commit();
         res.json({ message: "✅ Compra creada con éxito", compra_id: compraId });
+
     } catch (err) {
         await conn.rollback();
         console.error("❌ Error en compra:", err);
-        res.status(500).json({ error: "Error al registrar compra" });
+        res.status(400).json({ error: err.message || "Error al registrar compra" });
     } finally {
         conn.release();
     }
 });
-
 
 
 

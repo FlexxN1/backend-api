@@ -1,6 +1,5 @@
 const express = require("express");
 const cors = require("cors");
-const path = require("path");
 require("dotenv").config();
 
 const swaggerUi = require("swagger-ui-express");
@@ -12,10 +11,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Documentación Swagger (solo en dev/prod si quieres)
+// Documentación Swagger
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec, { explorer: true }));
 
-// rutas (las tuyas)
+// rutas
 const authRoutes = require('./routes/auth');
 const usuariosRoutes = require('./routes/usuarios');
 const productosRoutes = require('./routes/productos');
@@ -35,5 +34,35 @@ app.use("/detalle-compras", detalleComprasRoutes);
 // 404
 app.use((req, res) => res.status(404).json({ error: "Ruta no encontrada" }));
 
+// =============================
+// Socket.IO setup
+// =============================
+const http = require("http");
+const { Server } = require("socket.io");
+
+const server = http.createServer(app);
+
+const io = new Server(server, {
+    cors: {
+        origin: "*", // ⚠️ en producción pon aquí tu frontend (ej: "http://localhost:5173")
+        methods: ["GET", "POST", "PUT", "DELETE"]
+    }
+});
+
+// Evento de conexión
+io.on("connection", (socket) => {
+    console.log("🟢 Cliente conectado:", socket.id);
+
+    socket.on("disconnect", () => {
+        console.log("🔴 Cliente desconectado:", socket.id);
+    });
+});
+
+// Exportamos io para usarlo en rutas como compras.js
+module.exports = { app, server, io };
+
+// =============================
+// Levantar servidor
+// =============================
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`✅ Servidor corriendo en puerto ${PORT}`));
+server.listen(PORT, () => console.log(`✅ Servidor corriendo en puerto ${PORT}`));
