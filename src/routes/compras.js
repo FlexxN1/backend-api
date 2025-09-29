@@ -66,4 +66,38 @@ router.delete("/:id", async (req, res) => {
     }
 });
 
+// PUT actualizar estado de pago
+router.put("/:id/estado-pago", async (req, res) => {
+    const { id } = req.params;
+    const { estado_pago } = req.body;
+    try {
+        const [result] = await pool.query(
+            "UPDATE compras SET estado_pago=? WHERE id=?",
+            [estado_pago, id]
+        );
+        if (result.affectedRows === 0) return res.status(404).json({ error: "Compra no encontrada" });
+        res.json({ message: "✅ Estado de pago actualizado" });
+    } catch {
+        res.status(500).json({ error: "Error al actualizar estado de pago" });
+    }
+});
+
+// PUT actualizar estado de envío de un producto en el detalle
+router.put("/detalle/:id/estado-envio", async (req, res) => {
+    const { id } = req.params; // id del detalle_compras
+    const { estado_envio } = req.body;
+    try {
+        const [result] = await pool.query(
+            "UPDATE detalle_compras SET estado_envio=? WHERE id=?",
+            [estado_envio, id]
+        );
+        if (result.affectedRows === 0) return res.status(404).json({ error: "Detalle no encontrado" });
+        res.json({ message: "✅ Estado de envío actualizado" });
+    } catch {
+        res.status(500).json({ error: "Error al actualizar estado de envío" });
+    }
+});
+
+
+
 module.exports = router;
