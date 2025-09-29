@@ -4,6 +4,7 @@ const router = express.Router();
 const pool = require("../db");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const auth = require("../middlewares/auth"); // 👈 ya lo tienes
 require("dotenv").config();
 
 // 🔑 claves secretas (asegúrate de definir en Railway: JWT_SECRET y JWT_REFRESH_SECRET)
@@ -128,6 +129,25 @@ router.post("/refresh", (req, res) => {
     } catch (err) {
         console.error("❌ Error en /refresh:", err.message);
         return res.status(403).json({ error: "Refresh token inválido o expirado" });
+    }
+});
+
+// Obtener info del usuario logueado
+router.get("/me", auth(["Administrador", "Cliente"]), async (req, res) => {
+    try {
+        const [rows] = await pool.execute(
+            "SELECT id, nombre, email, tipo_usuario FROM usuarios WHERE id = ?",
+            [req.user.id]
+        );
+
+        if (!rows.length) {
+            return res.status(404).json({ error: "Usuario no encontrado" });
+        }
+
+        res.json(rows[0]);
+    } catch (err) {
+        console.error("❌ Error en GET /auth/me:", err);
+        res.status(500).json({ error: "Error servidor" });
     }
 });
 
