@@ -242,6 +242,9 @@ router.put("/:id/estado-pago", async (req, res) => {
 router.put("/detalle/:id/estado-envio", async (req, res) => {
     const { id } = req.params;
     const { estado_envio } = req.body;
+
+    console.log("📦 Body recibido:", req.body); // <-- LOG
+    console.log("🆔 ID recibido:", id);
     try {
         const [result] = await pool.query(
             "UPDATE detalle_compras SET estado_envio=? WHERE id=?",
