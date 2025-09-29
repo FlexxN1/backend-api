@@ -5,11 +5,35 @@ const router = express.Router();
 // =============================
 // GET todas las compras
 // =============================
+// GET compras con detalle de productos y usuarios
 router.get("/", async (req, res) => {
     try {
-        const [rows] = await pool.query("SELECT * FROM compras");
+        const [rows] = await pool.query(`
+            SELECT 
+                c.id AS compra_id,
+                c.usuario_id,
+                u.nombre AS usuario_nombre,
+                c.ciudad,
+                c.direccion,
+                c.telefono,
+                c.total,
+                c.estado_pago,
+                dc.id AS detalle_id,
+                dc.producto_id,
+                p.nombre AS producto_nombre,
+                p.vendedor_id,
+                dc.cantidad,
+                dc.precio_unitario,
+                dc.estado_envio
+            FROM compras c
+            INNER JOIN usuarios u ON c.usuario_id = u.id
+            INNER JOIN detalle_compras dc ON c.id = dc.compra_id
+            INNER JOIN productos p ON dc.producto_id = p.id
+        `);
+
         res.json(rows);
-    } catch {
+    } catch (err) {
+        console.error("❌ Error en GET /compras:", err);
         res.status(500).json({ error: "Error al obtener compras" });
     }
 });
