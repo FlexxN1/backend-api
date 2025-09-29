@@ -253,8 +253,7 @@ router.put("/detalle/:id/estado-envio", async (req, res) => {
         if (result.affectedRows === 0) {
             return res.status(404).json({ error: "Detalle no encontrado" });
         }
-
-        io.emit("estadoEnvioActualizado", {
+        req.io.emit("estadoEnvioActualizado", {
             detalleId: parseInt(id),
             nuevoEstado: estado_envio,
         });
