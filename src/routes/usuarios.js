@@ -1,29 +1,34 @@
 const express = require("express");
 const pool = require("../db");
 const bcrypt = require("bcryptjs");
+const auth = require("../middlewares/auth"); // 👈 importamos middleware
 const router = express.Router();
 
-router.put("/:id", async (req, res) => {
+// ✅ Cada usuario (cliente o admin) solo edita SU propio perfil
+router.put("/:id", auth(), async (req, res) => {
     console.log("✅ Entró al endpoint /usuarios/:id");
     console.log("🔎 Params:", req.params);
     console.log("🔎 Body:", req.body);
 
     const { id } = req.params;
-    let { nombre, email, password, tipo_usuario } = req.body;
+    let { nombre, email, password } = req.body; // 👈 quitamos tipo_usuario del body
 
     try {
+        // 🔐 Validación: solo el dueño puede editar su perfil
+        if (req.user.id != id) {
+            return res.status(403).json({ error: "No puedes editar otro usuario" });
+        }
+
         if (!password || password === "undefined" || password.trim() === "") {
-            // 👆 evitamos que "undefined" en string pase la validación
             const [result] = await pool.query(
-                "UPDATE usuarios SET nombre=?, email=?, tipo_usuario=? WHERE id=?",
-                [nombre, email, tipo_usuario, id]
+                "UPDATE usuarios SET nombre=?, email=? WHERE id=?",
+                [nombre, email, id]
             );
 
             if (result.affectedRows === 0) {
                 return res.status(404).json({ error: "Usuario no encontrado" });
             }
 
-            // 🔎 Traemos el usuario actualizado
             const [rows] = await pool.query(
                 "SELECT id, nombre, email, tipo_usuario FROM usuarios WHERE id=?",
                 [id]
@@ -35,19 +40,18 @@ router.put("/:id", async (req, res) => {
             });
         }
 
-        // 🔐 Siempre encriptamos si password existe
+        // 🔐 Encriptar si se cambia contraseña
         const hashedPassword = await bcrypt.hash(password, 10);
 
         const [result] = await pool.query(
-            "UPDATE usuarios SET nombre=?, email=?, tipo_usuario=?, password=? WHERE id=?",
-            [nombre, email, tipo_usuario, hashedPassword, id]
+            "UPDATE usuarios SET nombre=?, email=?, password=? WHERE id=?",
+            [nombre, email, hashedPassword, id]
         );
 
         if (result.affectedRows === 0) {
             return res.status(404).json({ error: "Usuario no encontrado" });
         }
 
-        // 🔎 Traemos el usuario actualizado
         const [rows] = await pool.query(
             "SELECT id, nombre, email, tipo_usuario FROM usuarios WHERE id=?",
             [id]
