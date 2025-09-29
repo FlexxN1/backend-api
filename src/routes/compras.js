@@ -56,27 +56,42 @@ router.get("/:id", async (req, res) => {
 // =============================
 // POST crear compra
 // =============================
+// POST crear compra con detalles
 router.post("/", async (req, res) => {
-    const { usuario_id, total, ciudad, direccion, telefono, metodo_pago } = req.body;
+    const { usuario_id, total, ciudad, direccion, telefono, metodo_pago, productos } = req.body;
+
+    const conn = await pool.getConnection();
+    await conn.beginTransaction();
+
     try {
-        const [result] = await pool.query(
-            `INSERT INTO compras (usuario_id, total, ciudad, direccion, telefono, metodo_pago, estado_pago) 
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [usuario_id, total, ciudad, direccion, telefono, metodo_pago || "tarjeta", "pendiente"]
+        // Insertar en compras
+        const [compraResult] = await conn.query(
+            "INSERT INTO compras (usuario_id, total, ciudad, direccion, telefono, metodo_pago, estado_pago) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [usuario_id, total, ciudad, direccion, telefono, metodo_pago, "pendiente"]
         );
 
-        res.json({
-            id: result.insertId,
-            usuario_id,
-            total,
-            metodo_pago: metodo_pago || "tarjeta",
-            estado_pago: "pendiente"
-        });
+        const compraId = compraResult.insertId;
+
+        // Insertar productos en detalle_compras
+        for (let p of productos) {
+            await conn.query(
+                "INSERT INTO detalle_compras (compra_id, producto_id, cantidad, precio_unitario, estado_envio) VALUES (?, ?, ?, ?, ?)",
+                [compraId, p.id, p.cantidad, p.precio, "Pendiente"]
+            );
+        }
+
+        await conn.commit();
+
+        res.json({ message: "✅ Compra creada con éxito", compra_id: compraId });
     } catch (err) {
-        console.error("❌ Error creando compra:", err);
-        res.status(500).json({ error: "Error al crear compra" });
+        await conn.rollback();
+        console.error(err);
+        res.status(500).json({ error: "Error al registrar compra" });
+    } finally {
+        conn.release();
     }
 });
+
 
 // =============================
 // PUT actualizar compra
