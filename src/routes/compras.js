@@ -57,6 +57,7 @@ router.get("/:id", async (req, res) => {
 // POST crear compra
 // =============================
 // POST crear compra con detalles
+// POST crear compra con detalles
 router.post("/", async (req, res) => {
     const { usuario_id, total, ciudad, direccion, telefono, metodo_pago, productos } = req.body;
 
@@ -64,7 +65,7 @@ router.post("/", async (req, res) => {
     await conn.beginTransaction();
 
     try {
-        // Insertar en compras
+        // Insertar la compra en la tabla compras
         const [compraResult] = await conn.query(
             "INSERT INTO compras (usuario_id, total, ciudad, direccion, telefono, metodo_pago, estado_pago) VALUES (?, ?, ?, ?, ?, ?, ?)",
             [usuario_id, total, ciudad, direccion, telefono, metodo_pago, "pendiente"]
@@ -72,7 +73,7 @@ router.post("/", async (req, res) => {
 
         const compraId = compraResult.insertId;
 
-        // Insertar productos en detalle_compras
+        // Insertar cada producto en detalle_compras
         for (let p of productos) {
             await conn.query(
                 "INSERT INTO detalle_compras (compra_id, producto_id, cantidad, precio_unitario, estado_envio) VALUES (?, ?, ?, ?, ?)",
@@ -81,16 +82,16 @@ router.post("/", async (req, res) => {
         }
 
         await conn.commit();
-
         res.json({ message: "✅ Compra creada con éxito", compra_id: compraId });
     } catch (err) {
         await conn.rollback();
-        console.error(err);
+        console.error("❌ Error en compra:", err);
         res.status(500).json({ error: "Error al registrar compra" });
     } finally {
         conn.release();
     }
 });
+
 
 
 // =============================
