@@ -2,7 +2,7 @@ const express = require("express");
 const pool = require("../db");
 const { io } = require("../app"); // 👈 importar io para emitir eventos
 const router = express.Router();
-const auth = require("../middleware/auth"); // 👈 usa tu middleware real
+const auth = require("../middlewares/auth"); // 👈 usa tu middleware real
 
 // =============================
 // GET todas las compras (agrupadas con productos)
