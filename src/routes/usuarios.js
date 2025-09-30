@@ -83,7 +83,7 @@ router.put("/:id", async (req, res) => {
 // =============================
 // Eliminar usuario
 // =============================
-router.delete("/:id", authMiddleware, async (req, res) => {
+router.delete("/:id", async (req, res) => {
     try {
         const [result] = await pool.query("DELETE FROM usuarios WHERE usuario_id = ?", [req.params.id]);
 
