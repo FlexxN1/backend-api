@@ -65,6 +65,9 @@ router.post("/", async (req, res) => {
 // =============================
 // Actualizar usuario
 // =============================
+// =============================
+// Actualizar usuario
+// =============================
 router.put("/:id", authMiddleware(), async (req, res) => {
     try {
         const { nombre, email, password, tipo_usuario } = req.body;
@@ -83,15 +86,28 @@ router.put("/:id", authMiddleware(), async (req, res) => {
         // 3. Ejecutar update
         await pool.query(
             "UPDATE usuarios SET nombre = ?, email = ?, password = ?, tipo_usuario = ? WHERE id = ?",
-            [nombre || userRows[0].nombre, email || userRows[0].email, hashedPassword, tipo_usuario || userRows[0].tipo_usuario, req.params.id]
+            [
+                nombre || userRows[0].nombre,
+                email || userRows[0].email,
+                hashedPassword,
+                tipo_usuario || userRows[0].tipo_usuario,
+                req.params.id
+            ]
         );
 
-        res.json({ mensaje: "Usuario actualizado correctamente" });
+        // 4. Volver a traer usuario actualizado
+        const [updatedRows] = await pool.query("SELECT id, nombre, email, tipo_usuario FROM usuarios WHERE id = ?", [req.params.id]);
+
+        res.json({
+            mensaje: "Usuario actualizado correctamente",
+            user: updatedRows[0], // 👈 esto lo espera tu frontend
+        });
     } catch (err) {
         console.error("❌ Error al actualizar usuario:", err);
         res.status(500).json({ error: "Error al actualizar usuario" });
     }
 });
+
 
 // =============================
 // Eliminar usuario
