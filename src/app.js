@@ -12,15 +12,7 @@ const app = express();
 // Middlewares
 // =============================
 
-app.use(cors({
-    origin: "https://backend-api-production-ece4.up.railway.app/",
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: true
-}));
-
-// para las preflight
-app.options("*", cors());
+app.use(cors())
 
 
 app.use(express.json());
