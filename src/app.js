@@ -13,7 +13,23 @@ const app = express();
 // =============================
 
 // ✅ Configuración de CORS
-app.use(cors());
+const allowedOrigins = [
+    "http://localhost:5173", // vite
+    "http://localhost:3000", // react-scripts (si llegas a usarlo)
+    "https://biteback7.netlify.app/", // en producción
+];
+
+
+app.use(cors({
+    origin: function (origin, callback) {
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error("CORS no permitido"));
+        }
+    },
+    credentials: true,
+}));
 
 app.use(express.json());
 
