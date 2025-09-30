@@ -83,10 +83,13 @@ router.post("/login", async (req, res) => {
 
         const token = signUserToken(cleanUser);
 
+        const accessToken = signUserToken(cleanUser); // expira más corto (ej: 15m)
+        const refreshToken = signUserToken(cleanUser); // expira más largo (ej: 30d)
+
         res.json({
-            user,
-            token, // en vez de accessToken
-            refreshToken: token,
+            user: cleanUser,
+            accessToken,
+            refreshToken,
         });
     } catch (err) {
         console.error("❌ Error en /login:", err);
