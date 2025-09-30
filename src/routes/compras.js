@@ -136,7 +136,7 @@ router.get("/:id", async (req, res) => {
 // =============================
 // POST crear compra con detalles
 // =============================
-router.post("/", auth,async (req, res) => {
+router.post("/",async (req, res) => {
     const { usuario_id, total, ciudad, direccion, telefono, metodo_pago, productos, estado_pago } = req.body;
 
     const conn = await pool.getConnection();

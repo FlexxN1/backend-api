@@ -62,7 +62,7 @@ router.post("/", async (req, res) => {
 // =============================
 // Actualizar usuario
 // =============================
-router.put("/:id", authMiddleware, async (req, res) => {
+router.put("/:id", async (req, res) => {
     try {
         const { nombre, email, password, tipo_usuario } = req.body;
 
