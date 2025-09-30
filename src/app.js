@@ -14,18 +14,8 @@ const app = express();
 
 
 // ✅ Configuración de CORS
-app.use(cors({
-    origin: "*", // o el dominio de tu frontend si quieres restringir
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-}));
+app.use(cors());
 
-app.options("*", (req, res) => {
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-    return res.sendStatus(204);
-});
 
 app.use(express.json());
 
