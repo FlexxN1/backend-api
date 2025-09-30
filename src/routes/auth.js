@@ -3,6 +3,18 @@ const express = require("express");
 const router = express.Router();
 const pool = require("../db");
 const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+
+// helpers
+function signUserToken(user) {
+    // incluir los campos que necesites en el payload
+    return jwt.sign({
+        id: user.id,
+        nombre: user.nombre,
+        email: user.email,
+        tipo_usuario: user.tipo_usuario
+    }, process.env.JWT_SECRET, { expiresIn: "30d" }); // token largo para "mantener sesión hasta cerrar manual"
+}
 
 // =====================
 // Registro de usuario
@@ -15,10 +27,7 @@ router.post("/register", async (req, res) => {
     }
 
     try {
-        const [found] = await pool.execute(
-            `SELECT id FROM usuarios WHERE email = ?`,
-            [email]
-        );
+        const [found] = await pool.execute(`SELECT id FROM usuarios WHERE email = ?`, [email]);
         if (found.length) {
             return res.status(409).json({ error: "Email ya registrado" });
         }
@@ -33,10 +42,10 @@ router.post("/register", async (req, res) => {
 
         const user = { id, nombre, email, tipo_usuario };
 
-        // Guardar en sesión
-        req.session.user = user;
+        // Firmar token
+        const token = signUserToken(user);
 
-        res.json({ user });
+        res.json({ user, token });
     } catch (err) {
         console.error("❌ Error en /register:", err);
         res.status(500).json({ error: "Error servidor" });
@@ -54,10 +63,7 @@ router.post("/login", async (req, res) => {
     }
 
     try {
-        const [rows] = await pool.execute(
-            `SELECT * FROM usuarios WHERE email = ?`,
-            [email]
-        );
+        const [rows] = await pool.execute(`SELECT * FROM usuarios WHERE email = ?`, [email]);
         if (!rows.length) {
             return res.status(401).json({ error: "Credenciales inválidas" });
         }
@@ -75,10 +81,9 @@ router.post("/login", async (req, res) => {
             tipo_usuario: user.tipo_usuario,
         };
 
-        // Guardar en sesión
-        req.session.user = cleanUser;
+        const token = signUserToken(cleanUser);
 
-        res.json({ user: cleanUser });
+        res.json({ user: cleanUser, token });
     } catch (err) {
         console.error("❌ Error en /login:", err);
         res.status(500).json({ error: "Error servidor" });
@@ -87,26 +92,24 @@ router.post("/login", async (req, res) => {
 
 // =====================
 // Obtener info del usuario logueado
+// - Para esto el cliente debe enviar Authorization: Bearer <token>
 // =====================
 router.get("/me", (req, res) => {
-    if (!req.session.user) {
+    // Nota: app.js coloca req.user si enviaste token en headers
+    if (!req.user) {
         return res.status(401).json({ error: "No autenticado" });
     }
-    res.json(req.session.user);
+    res.json(req.user);
 });
 
 // =====================
 // Logout
 // =====================
+// Con JWT no hay "destroy session" server-side sin blacklist.
+// Este endpoint solo es informativo: el cliente debe borrar el token localmente.
 router.post("/logout", (req, res) => {
-    req.session.destroy(err => {
-        if (err) {
-            console.error("❌ Error al cerrar sesión:", err);
-            return res.status(500).json({ error: "Error al cerrar sesión" });
-        }
-        res.clearCookie("connect.sid"); // limpiar cookie de sesión
-        res.json({ message: "Sesión cerrada correctamente" });
-    });
+    // Si quieres implementar blacklist, aquí es donde agregarías el token a la lista.
+    res.json({ message: "Logout: elimina el token en cliente" });
 });
 
 module.exports = router;

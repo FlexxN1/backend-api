@@ -1,27 +1,22 @@
-// routes/detalleCompra.js
+// routes/detalleCompras.js
 const express = require("express");
 const pool = require("../db");
 const router = express.Router();
+const requireAuth = require("../middlewares/auth"); // función que aceptaba allowedRoles
 
-// ===========================
 // Listar detalles de compras
-// ===========================
-router.get("/", async (req, res) => {
+router.get("/", requireAuth(), async (req, res) => {
     try {
-        if (!req.session.user) {
-            return res.status(401).json({ error: "No autenticado" });
-        }
-
+        const user = req.user;
         let query = "SELECT * FROM detalle_compras";
         let params = [];
 
-        // 👤 Usuario normal → solo sus compras
-        if (req.session.user.tipo === "Usuario") {
+        // Usuario normal → solo sus compras
+        if (user && (user.tipo_usuario === "Usuario" || user.tipo_usuario === "Cliente")) {
             query += " WHERE usuario_id = ?";
-            params.push(req.session.user.id);
+            params.push(user.id);
         }
 
-        // 🛠️ Admin → ve todos
         const [rows] = await pool.query(query, params);
         res.json(rows);
     } catch (err) {
@@ -30,28 +25,17 @@ router.get("/", async (req, res) => {
     }
 });
 
-// ===========================
 // Obtener detalle por ID
-// ===========================
-router.get("/:id", async (req, res) => {
+router.get("/:id", requireAuth(), async (req, res) => {
     try {
-        if (!req.session.user) {
-            return res.status(401).json({ error: "No autenticado" });
-        }
-
+        const user = req.user;
         const { id } = req.params;
 
         const [rows] = await pool.query("SELECT * FROM detalle_compras WHERE id=?", [id]);
 
-        if (rows.length === 0) {
-            return res.status(404).json({ error: "Detalle no encontrado" });
-        }
+        if (rows.length === 0) return res.status(404).json({ error: "Detalle no encontrado" });
 
-        // Validación: usuario solo ve sus propios detalles
-        if (
-            req.session.user.tipo === "Usuario" &&
-            rows[0].usuario_id !== req.session.user.id
-        ) {
+        if ((user.tipo_usuario === "Usuario" || user.tipo_usuario === "Cliente") && rows[0].usuario_id !== user.id) {
             return res.status(403).json({ error: "No autorizado" });
         }
 
@@ -62,20 +46,15 @@ router.get("/:id", async (req, res) => {
     }
 });
 
-// ===========================
 // Crear detalle
-// ===========================
-router.post("/", async (req, res) => {
+router.post("/", requireAuth(), async (req, res) => {
     try {
-        if (!req.session.user) {
-            return res.status(401).json({ error: "No autenticado" });
-        }
-
+        const user = req.user;
         const { compra_id, producto_id, cantidad, precio_unitario } = req.body;
 
         const [result] = await pool.query(
             "INSERT INTO detalle_compras (compra_id, producto_id, cantidad, precio_unitario, usuario_id) VALUES (?, ?, ?, ?, ?)",
-            [compra_id, producto_id, cantidad, precio_unitario, req.session.user.id]
+            [compra_id, producto_id, cantidad, precio_unitario, user.id]
         );
 
         res.json({
@@ -83,7 +62,7 @@ router.post("/", async (req, res) => {
             compra_id,
             producto_id,
             cantidad,
-            usuario_id: req.session.user.id,
+            usuario_id: user.id,
         });
     } catch (err) {
         console.error("❌ Error en POST /detalle-compras:", err);
@@ -91,36 +70,22 @@ router.post("/", async (req, res) => {
     }
 });
 
-// ===========================
 // Actualizar detalle
-// ===========================
-router.put("/:id", async (req, res) => {
+router.put("/:id", requireAuth(), async (req, res) => {
     try {
-        if (!req.session.user) {
-            return res.status(401).json({ error: "No autenticado" });
-        }
-
+        const user = req.user;
         const { id } = req.params;
         const { cantidad, precio_unitario } = req.body;
 
-        // Verificar dueño antes de actualizar
         const [rows] = await pool.query("SELECT * FROM detalle_compras WHERE id=?", [id]);
 
-        if (rows.length === 0) {
-            return res.status(404).json({ error: "Detalle no encontrado" });
-        }
+        if (rows.length === 0) return res.status(404).json({ error: "Detalle no encontrado" });
 
-        if (
-            req.session.user.tipo === "Usuario" &&
-            rows[0].usuario_id !== req.session.user.id
-        ) {
+        if ((user.tipo_usuario === "Usuario" || user.tipo_usuario === "Cliente") && rows[0].usuario_id !== user.id) {
             return res.status(403).json({ error: "No autorizado" });
         }
 
-        await pool.query(
-            "UPDATE detalle_compras SET cantidad=?, precio_unitario=? WHERE id=?",
-            [cantidad, precio_unitario, id]
-        );
+        await pool.query("UPDATE detalle_compras SET cantidad=?, precio_unitario=? WHERE id=?", [cantidad, precio_unitario, id]);
 
         res.json({ message: "Detalle actualizado" });
     } catch (err) {
@@ -129,28 +94,17 @@ router.put("/:id", async (req, res) => {
     }
 });
 
-// ===========================
 // Eliminar detalle
-// ===========================
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", requireAuth(), async (req, res) => {
     try {
-        if (!req.session.user) {
-            return res.status(401).json({ error: "No autenticado" });
-        }
-
+        const user = req.user;
         const { id } = req.params;
 
-        // Verificar dueño antes de eliminar
         const [rows] = await pool.query("SELECT * FROM detalle_compras WHERE id=?", [id]);
 
-        if (rows.length === 0) {
-            return res.status(404).json({ error: "Detalle no encontrado" });
-        }
+        if (rows.length === 0) return res.status(404).json({ error: "Detalle no encontrado" });
 
-        if (
-            req.session.user.tipo === "Usuario" &&
-            rows[0].usuario_id !== req.session.user.id
-        ) {
+        if ((user.tipo_usuario === "Usuario" || user.tipo_usuario === "Cliente") && rows[0].usuario_id !== user.id) {
             return res.status(403).json({ error: "No autorizado" });
         }
 

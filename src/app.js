@@ -1,24 +1,24 @@
+// app.js
+require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
-const session = require("express-session"); // 👈 sesiones
-require("dotenv").config();
-const MySQLStore = require("express-mysql-session")(session);
 const swaggerUi = require("swagger-ui-express");
 const swaggerSpec = require("./swagger");
+
+const http = require("http");
+const { Server } = require("socket.io");
+const jwt = require("jsonwebtoken");
 
 const app = express();
 
 // =============================
-// Middlewares
+// CORS
 // =============================
-
-// ✅ Configuración de CORS
 const allowedOrigins = [
-    "http://localhost:5173", // vite
-    "http://localhost:3000", // react-scripts (si llegas a usarlo)
-    "https://biteback7.netlify.app", // en producción
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "https://biteback7.netlify.app",
 ];
-
 
 app.use(cors({
     origin: function (origin, callback) {
@@ -33,29 +33,6 @@ app.use(cors({
 
 app.use(express.json());
 
-const store = new MySQLStore({
-    host: process.env.DB_HOST,
-    port: process.env.DB_PORT,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME
-});
-
-
-app.use(session({
-    secret: process.env.SESSION_SECRET || "supersecret123",
-    resave: false,
-    saveUninitialized: false,
-    store: store,
-    cookie: {
-        maxAge: 1000 * 60 * 60 * 24, // 1 día
-        secure: process.env.NODE_ENV === "production", // ✅ solo true en producción
-        httpOnly: true, // evita acceso con JS del frontend
-        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax"
-        // ⚠️ "none" es necesario si tu frontend (Netlify) y backend (Railway) están en dominios distintos
-    }
-}));
-
 // Evitar cacheo
 app.use((req, res, next) => {
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
@@ -69,34 +46,77 @@ app.use((req, res, next) => {
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec, { explorer: true }));
 
 // =============================
-// Socket.IO setup
+// Crear servidor HTTP + Socket.IO
 // =============================
-const http = require("http");
-const { Server } = require("socket.io");
-
 const server = http.createServer(app);
 
 const io = new Server(server, {
     cors: {
-        origin: [
-            "http://localhost:5173",
-            "http://localhost:3000",
-            "https://biteback7.netlify.app"
-        ], // ⚠️ tu frontend
+        origin: allowedOrigins,
         methods: ["GET", "POST", "PUT", "DELETE"],
-        credentials: true, // 👈 necesario con sesiones
-    }
+        credentials: true,
+    },
 });
 
-// 🔥 Middleware: inyectar io en req
+// =============================
+// Middleware opcional: decodificar JWT si viene en Authorization
+// - No reemplaza a tu middleware de autorización que exige roles.
+// - Solo coloca `req.user` cuando haya un token válido.
+// =============================
+app.use((req, res, next) => {
+    const header = req.headers.authorization;
+    if (header && header.startsWith("Bearer ")) {
+        const token = header.split(" ")[1];
+        try {
+            const payload = jwt.verify(token, process.env.JWT_SECRET);
+            req.user = payload; // { id, nombre, email, tipo_usuario, iat, exp }
+        } catch (err) {
+            // token inválido -> no rompemos la petición aquí, la validación concreta
+            // la hará el middleware que requiera auth.
+            // console.warn("JWT inválido en request:", err.message);
+            req.user = null;
+        }
+    }
+    next();
+});
+
+// 🔥 Inyectar io en req para emitir desde controladores si hace falta
 app.use((req, res, next) => {
     req.io = io;
     next();
 });
 
-// Evento de conexión
+// =============================
+// Socket.IO: autenticar por token en handshake
+// cliente: io(url, { auth: { token }})
+// =============================
+io.use((socket, next) => {
+    try {
+        const token = socket.handshake.auth && socket.handshake.auth.token;
+        if (!token) return next(); // permitimos conexiones anónimas si lo deseas
+        const payload = jwt.verify(token, process.env.JWT_SECRET);
+        socket.user = payload;
+        return next();
+    } catch (err) {
+        console.error("Socket auth error:", err.message);
+        return next(); // opción: podrías rechazar: next(new Error("Auth error"))
+    }
+});
+
 io.on("connection", (socket) => {
-    console.log("🟢 Cliente conectado:", socket.id);
+    console.log("🟢 Cliente conectado:", socket.id, "user=", socket.user?.id || "anon");
+
+    // si es admin, lo unimos a su sala
+    if (socket.user && (socket.user.tipo_usuario === "Admin" || socket.user.tipo_usuario === "Administrador")) {
+        socket.join(`admin-${socket.user.id}`);
+    }
+
+    socket.on("joinAdminRoom", (adminId) => {
+        // si el token corresponde al adminId permitimos unirse a la sala (extra seguridad)
+        if (socket.user && socket.user.id === adminId) {
+            socket.join(`admin-${adminId}`);
+        }
+    });
 
     socket.on("disconnect", () => {
         console.log("🔴 Cliente desconectado:", socket.id);
@@ -122,16 +142,12 @@ app.use("/usuarios", usuariosRoutes);
 app.use("/compras", comprasRoutes);
 app.use("/detalle-compras", detalleComprasRoutes);
 
-// =============================
 // 404
-// =============================
 app.use((req, res) => res.status(404).json({ error: "Ruta no encontrada" }));
 
-// Exportamos io por si lo necesitas en otro módulo
+// Exportamos app, server, io
 module.exports = { app, server, io };
 
-// =============================
 // Levantar servidor
-// =============================
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`✅ Servidor corriendo en puerto ${PORT}`));
