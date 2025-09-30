@@ -85,8 +85,8 @@ router.post("/login", async (req, res) => {
 
         res.json({
             user,
-            accessToken: token,
-            refreshToken: token, // si no usas refresh tokens, puedes devolver el mismo
+            token, // en vez de accessToken
+            refreshToken: token,
         });
     } catch (err) {
         console.error("❌ Error en /login:", err);
