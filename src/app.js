@@ -2,7 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const session = require("express-session"); // 👈 sesiones
 require("dotenv").config();
-
+const MySQLStore = require("express-mysql-session")(session);
 const swaggerUi = require("swagger-ui-express");
 const swaggerSpec = require("./swagger");
 
