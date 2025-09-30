@@ -20,16 +20,21 @@ app.use(cors({
 
 app.use(express.json());
 
-// ✅ Configuración de sesiones
+const store = new MySQLStore({
+    host: process.env.DB_HOST,
+    port: process.env.DB_PORT,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME
+});
+
+
 app.use(session({
-    secret: process.env.SESSION_SECRET || "supersecret", // 👈 define en Railway
+    secret: process.env.SESSION_SECRET || "supersecret123",
     resave: false,
     saveUninitialized: false,
-    cookie: {
-        httpOnly: true,   // la cookie no es accesible con JS
-        secure: false,    // ponlo en true si usas HTTPS en prod
-        maxAge: 1000 * 60 * 60 * 24, // 1 día
-    },
+    store: store, // 👈 guardamos en MySQL
+    cookie: { maxAge: 1000 * 60 * 60 * 24 }
 }));
 
 // Evitar cacheo
