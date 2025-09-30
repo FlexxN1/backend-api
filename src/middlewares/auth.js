@@ -7,7 +7,7 @@ module.exports = function (allowedRoles = []) {
         try {
             const header = req.headers.authorization;
             if (!header) {
-                return res.status(401).json({ error: "Token no provisto" });
+                return res.status(401).json({ error: "Token inválido" });
             }
 
             const token = header.split(" ")[1];
@@ -26,11 +26,6 @@ module.exports = function (allowedRoles = []) {
             next();
         } catch (err) {
             console.error("❌ Error auth middleware:", err.message);
-
-            if (err.name === "TokenExpiredError") {
-                return res.status(401).json({ error: "jwt expired" });
-            }
-
             return res.status(401).json({ error: "Token inválido" });
         }
     };
