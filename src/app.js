@@ -13,10 +13,7 @@ const app = express();
 // =============================
 
 app.use(cors({
-    origin: [
-        "http://localhost:3000",
-        "https://biteback7.netlify.app"
-    ],
+    origin: "https://backend-api-production-ece4.up.railway.app/",
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true
