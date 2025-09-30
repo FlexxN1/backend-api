@@ -2,7 +2,6 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../db");
-const authMiddleware = require("../middlewares/auth");
 
 // =============================
 // Obtener todos los usuarios
@@ -61,7 +60,7 @@ router.post("/", async (req, res) => {
 // =============================
 // Actualizar usuario
 // =============================
-router.put("/:id", authMiddleware, async (req, res) => {
+router.put("/:id", async (req, res) => {
     try {
         const { nombre, email, password, tipo_usuario } = req.body;
 

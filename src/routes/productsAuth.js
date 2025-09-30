@@ -2,11 +2,12 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../db");
+const auth = require("../middlewares/auth"); // 👈 importar el middleware
 
 // ===========================
 // Listar productos del admin
 // ===========================
-router.get("/", async (req, res) => {
+router.get("/", auth(["Administrador"]), async (req, res) => {
     try {
         const [rows] = await pool.execute(
             `SELECT p.*, u.nombre as vendedor 
@@ -14,7 +15,7 @@ router.get("/", async (req, res) => {
              LEFT JOIN usuarios u ON p.vendedor_id = u.id
              WHERE p.vendedor_id = ?
              ORDER BY p.fecha_creacion DESC`,
-            [req.user.id]
+            [req.user.id] // 👈 ya viene del token
         );
         res.json(rows);
     } catch (err) {
@@ -26,7 +27,7 @@ router.get("/", async (req, res) => {
 // ===========================
 // Crear producto (solo admin)
 // ===========================
-router.post("/", async (req, res) => {
+router.post("/", auth(["Administrador"]), async (req, res) => {
     try {
         const { nombre, descripcion, precio, stock = 0, imagen_url } = req.body;
 
@@ -62,7 +63,7 @@ router.post("/", async (req, res) => {
 // ===========================
 // Eliminar producto (solo admin dueño)
 // ===========================
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", auth(["Administrador"]), async (req, res) => {
     const { id } = req.params;
 
     try {
