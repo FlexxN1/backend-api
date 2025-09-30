@@ -12,22 +12,29 @@ const app = express();
 // Middlewares
 // =============================
 const allowedOrigins = [
-    "http://localhost:3000",       // 🔥 para cuando pruebas en local
-    "https://biteback7.netlify.app" // 🔥 tu frontend en producción
+    "http://localhost:3000",       // 👉 frontend local
+    "https://biteback7.netlify.app" // 👉 frontend en producción
 ];
 
 app.use(cors({
-    origin: (origin, callback) => {
-        if (!origin || allowedOrigins.includes(origin)) {
-            callback(null, true);
+    origin: function (origin, callback) {
+        // Permitir requests sin origin (como Postman, curl)
+        if (!origin) return callback(null, true);
+
+        if (allowedOrigins.includes(origin)) {
+            return callback(null, true);
         } else {
-            callback(new Error("CORS no permitido por el servidor"));
+            return callback(new Error("Not allowed by CORS"));
         }
     },
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true
 }));
+
+// 👇 extra: responder siempre a preflight
+app.options("*", cors());
+
 
 
 app.use(express.json());
