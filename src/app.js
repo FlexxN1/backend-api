@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const session = require("express-session"); // 👈 sesiones
 require("dotenv").config();
 
 const swaggerUi = require("swagger-ui-express");
@@ -8,17 +9,30 @@ const swaggerSpec = require("./swagger");
 const app = express();
 
 // =============================
-// =============================
 // Middlewares
 // =============================
 
-
 // ✅ Configuración de CORS
-app.use(cors());
-
+app.use(cors({
+    origin: "http://localhost:5173", // ⚠️ cámbialo a tu frontend en producción
+    credentials: true, // 👈 necesario para enviar cookies de sesión
+}));
 
 app.use(express.json());
 
+// ✅ Configuración de sesiones
+app.use(session({
+    secret: process.env.SESSION_SECRET || "supersecret", // 👈 define en Railway
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        httpOnly: true,   // la cookie no es accesible con JS
+        secure: false,    // ponlo en true si usas HTTPS en prod
+        maxAge: 1000 * 60 * 60 * 24, // 1 día
+    },
+}));
+
+// Evitar cacheo
 app.use((req, res, next) => {
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
     res.setHeader("Pragma", "no-cache");
@@ -26,6 +40,7 @@ app.use((req, res, next) => {
     res.setHeader("Surrogate-Control", "no-store");
     next();
 });
+
 // Documentación Swagger
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec, { explorer: true }));
 
@@ -39,8 +54,9 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
     cors: {
-        origin: "*", // ⚠️ en producción usa tu frontend (ej: "http://localhost:5173")
-        methods: ["GET", "POST", "PUT", "DELETE"]
+        origin: "http://localhost:5173", // ⚠️ tu frontend
+        methods: ["GET", "POST", "PUT", "DELETE"],
+        credentials: true, // 👈 necesario con sesiones
     }
 });
 

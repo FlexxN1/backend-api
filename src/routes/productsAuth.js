@@ -2,21 +2,25 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../db");
-const auth = require("../middlewares/auth"); // 👈 importar el middleware
 
 // ===========================
-// Listar productos del admin
+// Listar productos del usuario logueado
 // ===========================
-router.get("/", auth(["Administrador"]), async (req, res) => {
+router.get("/", async (req, res) => {
     try {
+        if (!req.session.user) {
+            return res.status(401).json({ error: "No autenticado" });
+        }
+
         const [rows] = await pool.execute(
             `SELECT p.*, u.nombre as vendedor 
              FROM productos p
              LEFT JOIN usuarios u ON p.vendedor_id = u.id
              WHERE p.vendedor_id = ?
              ORDER BY p.fecha_creacion DESC`,
-            [req.user.id] // 👈 ya viene del token
+            [req.session.user.id]
         );
+
         res.json(rows);
     } catch (err) {
         console.error("❌ Error en GET /productos-auth:", err);
@@ -25,17 +29,22 @@ router.get("/", auth(["Administrador"]), async (req, res) => {
 });
 
 // ===========================
-// Crear producto (solo admin)
+// Crear producto (solo si está logueado)
 // ===========================
-router.post("/", auth(["Administrador"]), async (req, res) => {
+router.post("/", async (req, res) => {
     try {
+        if (!req.session.user) {
+            return res.status(401).json({ error: "No autenticado" });
+        }
+
         const { nombre, descripcion, precio, stock = 0, imagen_url } = req.body;
 
         if (!nombre || !precio) {
             return res.status(400).json({ error: "Nombre y precio requeridos" });
         }
 
-        const vendedor_id = req.user.id; // 👈 viene del token
+        const vendedor_id = req.session.user.id;
+
         const [r] = await pool.execute(
             `INSERT INTO productos (nombre, descripcion, precio, imagen_url, stock, vendedor_id) 
              VALUES (?, ?, ?, ?, ?, ?)`,
@@ -44,7 +53,7 @@ router.post("/", auth(["Administrador"]), async (req, res) => {
 
         const nuevoId = r.insertId;
 
-        // 🔥 Recuperamos el producto recién creado con el vendedor
+        // 🔥 Recuperamos el producto recién creado
         const [rows] = await pool.execute(
             `SELECT p.*, u.nombre as vendedor 
              FROM productos p
@@ -53,7 +62,7 @@ router.post("/", auth(["Administrador"]), async (req, res) => {
             [nuevoId]
         );
 
-        res.json(rows[0]); // enviamos el producto completo
+        res.json(rows[0]);
     } catch (err) {
         console.error("❌ Error en POST /productos-auth:", err);
         res.status(500).json({ error: "Error servidor" });
@@ -61,16 +70,20 @@ router.post("/", auth(["Administrador"]), async (req, res) => {
 });
 
 // ===========================
-// Eliminar producto (solo admin dueño)
+// Eliminar producto (solo si es dueño)
 // ===========================
-router.delete("/:id", auth(["Administrador"]), async (req, res) => {
-    const { id } = req.params;
-
+router.delete("/:id", async (req, res) => {
     try {
-        // Verificar que el producto pertenezca al admin
+        if (!req.session.user) {
+            return res.status(401).json({ error: "No autenticado" });
+        }
+
+        const { id } = req.params;
+
+        // Verificar que el producto sea del usuario logueado
         const [rows] = await pool.execute(
             "SELECT * FROM productos WHERE id = ? AND vendedor_id = ?",
-            [id, req.user.id]
+            [id, req.session.user.id]
         );
 
         if (rows.length === 0) {

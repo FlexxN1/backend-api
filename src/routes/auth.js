@@ -3,24 +3,6 @@ const express = require("express");
 const router = express.Router();
 const pool = require("../db");
 const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
-const auth = require("../middlewares/auth"); // 👈 ya lo tienes
-require("dotenv").config();
-
-// 🔑 claves secretas (asegúrate de definir en Railway: JWT_SECRET y JWT_REFRESH_SECRET)
-const JWT_SECRET = process.env.JWT_SECRET || "secret123";
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || "refresh123";
-
-// =====================
-// Helpers
-// =====================
-function generarAccessToken(user) {
-    return jwt.sign(user, JWT_SECRET, { expiresIn: "15m" }); // acceso corto
-}
-
-function generarRefreshToken(user) {
-    return jwt.sign(user, JWT_REFRESH_SECRET, { expiresIn: "7d" }); // sesión larga
-}
 
 // =====================
 // Registro de usuario
@@ -51,11 +33,10 @@ router.post("/register", async (req, res) => {
 
         const user = { id, nombre, email, tipo_usuario };
 
-        // tokens
-        const accessToken = generarAccessToken(user);
-        const refreshToken = generarRefreshToken(user);
+        // Guardar en sesión
+        req.session.user = user;
 
-        res.json({ accessToken, refreshToken, user });
+        res.json({ user });
     } catch (err) {
         console.error("❌ Error en /register:", err);
         res.status(500).json({ error: "Error servidor" });
@@ -94,10 +75,10 @@ router.post("/login", async (req, res) => {
             tipo_usuario: user.tipo_usuario,
         };
 
-        const accessToken = generarAccessToken(cleanUser);
-        const refreshToken = generarRefreshToken(cleanUser);
+        // Guardar en sesión
+        req.session.user = cleanUser;
 
-        res.json({ accessToken, refreshToken, user: cleanUser });
+        res.json({ user: cleanUser });
     } catch (err) {
         console.error("❌ Error en /login:", err);
         res.status(500).json({ error: "Error servidor" });
@@ -105,50 +86,27 @@ router.post("/login", async (req, res) => {
 });
 
 // =====================
-// Refresh token
+// Obtener info del usuario logueado
 // =====================
-router.post("/refresh", (req, res) => {
-    const { refreshToken } = req.body;
-    if (!refreshToken) {
-        return res.status(401).json({ error: "No hay refresh token" });
+router.get("/me", (req, res) => {
+    if (!req.session.user) {
+        return res.status(401).json({ error: "No autenticado" });
     }
-
-    try {
-        const payload = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
-
-        const user = {
-            id: payload.id,
-            nombre: payload.nombre,
-            email: payload.email,
-            tipo_usuario: payload.tipo_usuario,
-        };
-
-        const newAccessToken = generarAccessToken(user);
-
-        res.json({ accessToken: newAccessToken });
-    } catch (err) {
-        console.error("❌ Error en /refresh:", err.message);
-        return res.status(403).json({ error: "Refresh token inválido o expirado" });
-    }
+    res.json(req.session.user);
 });
 
-// Obtener info del usuario logueado
-router.get("/me", auth(["Administrador", "Cliente"]), async (req, res) => {
-    try {
-        const [rows] = await pool.execute(
-            "SELECT id, nombre, email, tipo_usuario FROM usuarios WHERE id = ?",
-            [req.user.id]
-        );
-
-        if (!rows.length) {
-            return res.status(404).json({ error: "Usuario no encontrado" });
+// =====================
+// Logout
+// =====================
+router.post("/logout", (req, res) => {
+    req.session.destroy(err => {
+        if (err) {
+            console.error("❌ Error al cerrar sesión:", err);
+            return res.status(500).json({ error: "Error al cerrar sesión" });
         }
-
-        res.json(rows[0]);
-    } catch (err) {
-        console.error("❌ Error en GET /auth/me:", err);
-        res.status(500).json({ error: "Error servidor" });
-    }
+        res.clearCookie("connect.sid"); // limpiar cookie de sesión
+        res.json({ message: "Sesión cerrada correctamente" });
+    });
 });
 
 module.exports = router;

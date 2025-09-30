@@ -2,7 +2,6 @@ const express = require("express");
 const pool = require("../db");
 const { io } = require("../app"); // 👈 importar io para emitir eventos
 const router = express.Router();
-const auth = require("../middlewares/auth"); // 👈 usa tu middleware real
 
 // =============================
 // GET todas las compras (agrupadas con productos)
@@ -33,7 +32,6 @@ router.get("/", async (req, res) => {
             INNER JOIN productos p ON dc.producto_id = p.id
         `);
 
-        // 🔑 Agrupar compras en objetos con productos[]
         const compras = rows.reduce((acc, row) => {
             let compra = acc.find(c => c.compra_id === row.compra_id);
             if (!compra) {
@@ -136,7 +134,7 @@ router.get("/:id", async (req, res) => {
 // =============================
 // POST crear compra con detalles
 // =============================
-router.post("/",async (req, res) => {
+router.post("/", async (req, res) => {
     const { usuario_id, total, ciudad, direccion, telefono, metodo_pago, productos, estado_pago } = req.body;
 
     const conn = await pool.getConnection();
@@ -240,12 +238,10 @@ router.put("/:id/estado-pago", async (req, res) => {
 // =============================
 // PUT actualizar estado de envío
 // =============================
-router.put("/detalle/:id/estado-envio", auth, async (req, res) => {
+router.put("/detalle/:id/estado-envio", async (req, res) => {
     const { id } = req.params;
     const { estado_envio } = req.body;
 
-    console.log("📦 Body recibido:", req.body); // <-- LOG
-    console.log("🆔 ID recibido:", id);
     try {
         const [result] = await pool.query(
             "UPDATE detalle_compras SET estado_envio=? WHERE id=?",
