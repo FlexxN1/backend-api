@@ -2,6 +2,7 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../db");
+const authMiddleware = require("../middlewares/auth");
 
 // =============================
 // Obtener todos los usuarios
@@ -21,7 +22,7 @@ router.get("/", async (req, res) => {
 // =============================
 router.get("/:id", async (req, res) => {
     try {
-        const [rows] = await pool.query("SELECT * FROM usuarios WHERE usuario_id = ?", [req.params.id]);
+        const [rows] = await pool.query("SELECT * FROM usuarios WHERE id = ?", [req.params.id]);
 
         if (rows.length === 0) {
             return res.status(404).json({ error: "Usuario no encontrado" });
@@ -50,7 +51,7 @@ router.post("/", async (req, res) => {
             [nombre, email, password, tipo_usuario || "Cliente"]
         );
 
-        res.status(201).json({ usuario_id: result.insertId, nombre, email, tipo_usuario });
+        res.status(201).json({ id: result.insertId, nombre, email, tipo_usuario });
     } catch (err) {
         console.error("❌ Error al crear usuario:", err);
         res.status(500).json({ error: "Error al crear usuario" });
@@ -60,12 +61,12 @@ router.post("/", async (req, res) => {
 // =============================
 // Actualizar usuario
 // =============================
-router.put("/:id", async (req, res) => {
+router.put("/:id", authMiddleware(), async (req, res) => {
     try {
         const { nombre, email, password, tipo_usuario } = req.body;
 
         const [result] = await pool.query(
-            "UPDATE usuarios SET nombre = ?, email = ?, password = ?, tipo_usuario = ? WHERE usuario_id = ?",
+            "UPDATE usuarios SET nombre = ?, email = ?, password = ?, tipo_usuario = ? WHERE id = ?",
             [nombre, email, password, tipo_usuario, req.params.id]
         );
 
@@ -83,9 +84,9 @@ router.put("/:id", async (req, res) => {
 // =============================
 // Eliminar usuario
 // =============================
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", authMiddleware(), async (req, res) => {
     try {
-        const [result] = await pool.query("DELETE FROM usuarios WHERE usuario_id = ?", [req.params.id]);
+        const [result] = await pool.query("DELETE FROM usuarios WHERE id = ?", [req.params.id]);
 
         if (result.affectedRows === 0) {
             return res.status(404).json({ error: "Usuario no encontrado" });
