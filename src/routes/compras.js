@@ -239,7 +239,7 @@ router.put("/:id/estado-pago", async (req, res) => {
 // =============================
 // PUT actualizar estado de envío
 // =============================
-router.put("/detalle/:id/estado-envio", auth, async (req, res) => {
+router.put("/detalle/:id/estado-envio", async (req, res) => {
     const { id } = req.params;
     const { estado_envio } = req.body;
 
