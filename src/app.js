@@ -11,7 +11,14 @@ const app = express();
 // Middlewares
 // =============================
 app.use(cors({
-    origin: "*", // en producción pon aquí tu dominio frontend, ej: "https://midominio.com"
+    origin: "*", // en producción usa tu dominio del frontend
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+}));
+
+// Manejo explícito del preflight (importante en Railway)
+app.options("*", cors({
+    origin: "*",
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
 }));
