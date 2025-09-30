@@ -12,7 +12,12 @@ const app = express();
 // Middlewares
 // =============================
 
-app.use(cors())
+app.use(cors({
+    origin: ["http://localhost:3000", "https://tu-frontend.railway.app"], // 👈 agrega ambos
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true, // si usas cookies o sesiones
+}));
 
 
 app.use(express.json());
