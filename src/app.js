@@ -46,8 +46,13 @@ app.use(session({
     secret: process.env.SESSION_SECRET || "supersecret123",
     resave: false,
     saveUninitialized: false,
-    store: store, // 👈 guardamos en MySQL
-    cookie: { maxAge: 1000 * 60 * 60 * 24 }
+    store: store,
+    cookie: {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production", // 🔒 true en Railway
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax", // 🔑 necesario para cross-domain
+        maxAge: 1000 * 60 * 60 * 24, // 1 día
+    }
 }));
 
 // Evitar cacheo
