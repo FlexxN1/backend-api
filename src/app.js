@@ -33,8 +33,9 @@ app.use(cors({
 }));
 
 // 👇 extra: responder siempre a preflight
-app.options("*", cors());
-
+app.options("*", (req, res) => {
+    res.sendStatus(204);
+});
 
 
 app.use(express.json());
