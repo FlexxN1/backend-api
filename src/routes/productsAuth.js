@@ -8,7 +8,7 @@ const pool = require("../db");
 // ===========================
 router.get("/", async (req, res) => {
     try {
-        if (!req.session.user) {
+        if (!req.user) {
             return res.status(401).json({ error: "No autenticado" });
         }
 
@@ -18,7 +18,7 @@ router.get("/", async (req, res) => {
              LEFT JOIN usuarios u ON p.vendedor_id = u.id
              WHERE p.vendedor_id = ?
              ORDER BY p.fecha_creacion DESC`,
-            [req.session.user.id]
+            [req.user.id]
         );
 
         res.json(rows);
@@ -33,7 +33,7 @@ router.get("/", async (req, res) => {
 // ===========================
 router.post("/", async (req, res) => {
     try {
-        if (!req.session.user) {
+        if (!req.user) {
             return res.status(401).json({ error: "No autenticado" });
         }
 
@@ -43,7 +43,7 @@ router.post("/", async (req, res) => {
             return res.status(400).json({ error: "Nombre y precio requeridos" });
         }
 
-        const vendedor_id = req.session.user.id;
+        const vendedor_id = req.user.id;
 
         const [r] = await pool.execute(
             `INSERT INTO productos (nombre, descripcion, precio, imagen_url, stock, vendedor_id) 
@@ -74,7 +74,7 @@ router.post("/", async (req, res) => {
 // ===========================
 router.delete("/:id", async (req, res) => {
     try {
-        if (!req.session.user) {
+        if (!req.user) {
             return res.status(401).json({ error: "No autenticado" });
         }
 
@@ -83,7 +83,7 @@ router.delete("/:id", async (req, res) => {
         // Verificar que el producto sea del usuario logueado
         const [rows] = await pool.execute(
             "SELECT * FROM productos WHERE id = ? AND vendedor_id = ?",
-            [id, req.session.user.id]
+            [id, req.user.id]
         );
 
         if (rows.length === 0) {
