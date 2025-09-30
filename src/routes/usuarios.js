@@ -3,7 +3,7 @@ const express = require("express");
 const router = express.Router();
 const pool = require("../db");
 const authMiddleware = require("../middlewares/auth");
-const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 
 // =============================
 // Obtener todos los usuarios
@@ -47,12 +47,9 @@ router.post("/", async (req, res) => {
             return res.status(400).json({ error: "Faltan datos obligatorios" });
         }
 
-        // 🔐 Encriptar contraseña
-        const hashedPassword = await bcrypt.hash(password, 10);
-
         const [result] = await pool.query(
             "INSERT INTO usuarios (nombre, email, password, tipo_usuario) VALUES (?, ?, ?, ?)",
-            [nombre, email, hashedPassword, tipo_usuario || "Cliente"]
+            [nombre, email, password, tipo_usuario || "Cliente"]
         );
 
         res.status(201).json({ id: result.insertId, nombre, email, tipo_usuario });
@@ -65,42 +62,40 @@ router.post("/", async (req, res) => {
 // =============================
 // Actualizar usuario
 // =============================
-// =============================
-// Actualizar usuario
-// =============================
-router.put("/:id", authMiddleware(), async (req, res) => {
+router.put("/:id", authMiddleware, async (req, res) => {
     try {
         const { nombre, email, password, tipo_usuario } = req.body;
 
-        // 1. Buscar usuario actual
-        const [userRows] = await pool.query("SELECT * FROM usuarios WHERE id = ?", [req.params.id]);
-        if (userRows.length === 0) {
+        // Si no se envía password, no lo actualizamos
+        let query = "UPDATE usuarios SET nombre = ?, email = ?, tipo_usuario = ? WHERE id = ?";
+        let params = [nombre, email, tipo_usuario, req.params.id];
+
+        if (password) {
+            query = "UPDATE usuarios SET nombre = ?, email = ?, password = ?, tipo_usuario = ? WHERE id = ?";
+            params = [nombre, email, password, tipo_usuario, req.params.id];
+        }
+
+        const [result] = await pool.query(query, params);
+
+        if (result.affectedRows === 0) {
             return res.status(404).json({ error: "Usuario no encontrado" });
         }
 
-        // 2. Si mandan password, la encriptamos. Si no, dejamos la actual.
-        const hashedPassword = password && password.trim() !== ""
-            ? await bcrypt.hash(password, 10)
-            : userRows[0].password;
+        // Obtener usuario actualizado
+        const [updatedRows] = await pool.query("SELECT * FROM usuarios WHERE id = ?", [req.params.id]);
+        const updatedUser = updatedRows[0];
 
-        // 3. Ejecutar update
-        await pool.query(
-            "UPDATE usuarios SET nombre = ?, email = ?, password = ?, tipo_usuario = ? WHERE id = ?",
-            [
-                nombre || userRows[0].nombre,
-                email || userRows[0].email,
-                hashedPassword,
-                tipo_usuario || userRows[0].tipo_usuario,
-                req.params.id
-            ]
-        );
-
-        // 4. Volver a traer usuario actualizado
-        const [updatedRows] = await pool.query("SELECT id, nombre, email, tipo_usuario FROM usuarios WHERE id = ?", [req.params.id]);
+        // 🔥 Generar nuevos tokens (importante si cambió contraseña)
+        const accessToken = jwt.sign(updatedUser, process.env.JWT_SECRET, { expiresIn: "15m" });
+        const refreshToken = jwt.sign(updatedUser, process.env.JWT_REFRESH, { expiresIn: "7d" });
 
         res.json({
             mensaje: "Usuario actualizado correctamente",
-            user: updatedRows[0], // 👈 esto lo espera tu frontend
+            user: updatedUser,
+            tokens: {
+                accessToken,
+                refreshToken,
+            },
         });
     } catch (err) {
         console.error("❌ Error al actualizar usuario:", err);
@@ -108,11 +103,10 @@ router.put("/:id", authMiddleware(), async (req, res) => {
     }
 });
 
-
 // =============================
 // Eliminar usuario
 // =============================
-router.delete("/:id", authMiddleware(), async (req, res) => {
+router.delete("/:id", authMiddleware, async (req, res) => {
     try {
         const [result] = await pool.query("DELETE FROM usuarios WHERE id = ?", [req.params.id]);
 
