@@ -7,7 +7,7 @@ const auth = require("../middlewares/auth");
 // ===========================
 // Listar productos del admin
 // ===========================
-router.get("/", auth(["Administrador"]), async (req, res) => {
+router.get("/", async (req, res) => {
     try {
         const [rows] = await pool.execute(
             `SELECT p.*, u.nombre as vendedor 

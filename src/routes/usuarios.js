@@ -1,11 +1,10 @@
 const express = require("express");
 const pool = require("../db");
 const bcrypt = require("bcryptjs");
-const auth = require("../middlewares/auth"); // 👈 importamos middleware
 const router = express.Router();
 
 // ✅ Cada usuario (cliente o admin) solo edita SU propio perfil
-router.put("/:id", auth(), async (req, res) => {
+router.put("/:id", async (req, res) => {
     console.log("✅ Entró al endpoint /usuarios/:id");
     console.log("🔎 Params:", req.params);
     console.log("🔎 Body:", req.body);
