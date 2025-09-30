@@ -48,10 +48,11 @@ app.use(session({
     saveUninitialized: false,
     store: store,
     cookie: {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production", // 🔒 true en Railway
-        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax", // 🔑 necesario para cross-domain
         maxAge: 1000 * 60 * 60 * 24, // 1 día
+        secure: process.env.NODE_ENV === "production", // ✅ solo true en producción
+        httpOnly: true, // evita acceso con JS del frontend
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax"
+        // ⚠️ "none" es necesario si tu frontend (Netlify) y backend (Railway) están en dominios distintos
     }
 }));
 
