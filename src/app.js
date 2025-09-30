@@ -11,20 +11,19 @@ const app = express();
 // =============================
 // Middlewares
 // =============================
-const allowedOrigins = [
-    "http://localhost:3000",       // 👉 frontend local
-    "https://biteback7.netlify.app" // 👉 frontend en producción
-];
 
 app.use(cors({
-    origin: allowedOrigins,
+    origin: [
+        "http://localhost:3000",
+        "https://biteback7.netlify.app"
+    ],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true
 }));
 
 // para las preflight
-app.options("/*", cors());
+app.options("*", cors());
 
 
 app.use(express.json());
