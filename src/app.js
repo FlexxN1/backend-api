@@ -16,7 +16,7 @@ const app = express();
 const allowedOrigins = [
     "http://localhost:5173", // vite
     "http://localhost:3000", // react-scripts (si llegas a usarlo)
-    "https://biteback7.netlify.app/", // en producción
+    "https://biteback7.netlify.app", // en producción
 ];
 
 
@@ -78,7 +78,11 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
     cors: {
-        origin: "http://localhost:5173", // ⚠️ tu frontend
+        origin: [
+            "http://localhost:5173",
+            "http://localhost:3000",
+            "https://biteback7.netlify.app"
+        ], // ⚠️ tu frontend
         methods: ["GET", "POST", "PUT", "DELETE"],
         credentials: true, // 👈 necesario con sesiones
     }
