@@ -110,6 +110,40 @@ router.get("/me", (req, res) => {
 });
 
 // =====================
+// Refresh Token
+// =====================
+router.post("/refresh", (req, res) => {
+    const { refreshToken } = req.body;
+
+    if (!refreshToken) {
+        return res.status(400).json({ error: "Falta refreshToken" });
+    }
+
+    try {
+        // verificamos que el refresh token sea válido
+        const decoded = jwt.verify(refreshToken, process.env.JWT_SECRET);
+
+        // puedes generar un nuevo access token con los mismos datos
+        const newAccessToken = jwt.sign(
+            {
+                id: decoded.id,
+                nombre: decoded.nombre,
+                email: decoded.email,
+                tipo_usuario: decoded.tipo_usuario,
+            },
+            process.env.JWT_SECRET,
+            { expiresIn: "15m" } // vida corta para el access token
+        );
+
+        return res.json({ accessToken: newAccessToken });
+    } catch (err) {
+        console.error("❌ Error en /refresh:", err);
+        return res.status(401).json({ error: "Refresh token inválido o expirado" });
+    }
+});
+
+
+// =====================
 // Logout
 // =====================
 // Con JWT no hay "destroy session" server-side sin blacklist.
