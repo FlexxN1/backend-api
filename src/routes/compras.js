@@ -2,6 +2,7 @@ const express = require("express");
 const pool = require("../db");
 const { io } = require("../app"); // 👈 importar io para emitir eventos
 const router = express.Router();
+const auth = require("../middlewares/auth"); // 👈 usa tu middleware real
 
 // =============================
 // GET todas las compras (agrupadas con productos)
@@ -135,7 +136,7 @@ router.get("/:id", async (req, res) => {
 // =============================
 // POST crear compra con detalles
 // =============================
-router.post("/", async (req, res) => {
+router.post("/", auth,async (req, res) => {
     const { usuario_id, total, ciudad, direccion, telefono, metodo_pago, productos, estado_pago } = req.body;
 
     const conn = await pool.getConnection();
@@ -239,7 +240,7 @@ router.put("/:id/estado-pago", async (req, res) => {
 // =============================
 // PUT actualizar estado de envío
 // =============================
-router.put("/detalle/:id/estado-envio", async (req, res) => {
+router.put("/detalle/:id/estado-envio", auth, async (req, res) => {
     const { id } = req.params;
     const { estado_envio } = req.body;
 

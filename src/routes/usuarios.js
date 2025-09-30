@@ -1,68 +1,101 @@
+// routes/usuarios.js
 const express = require("express");
-const pool = require("../db");
-const bcrypt = require("bcryptjs");
 const router = express.Router();
+const pool = require("../db");
+const authMiddleware = require("../middlewares/auth");
 
-// ✅ Cada usuario (cliente o admin) solo edita SU propio perfil
-router.put("/:id", async (req, res) => {
-    console.log("✅ Entró al endpoint /usuarios/:id");
-    console.log("🔎 Params:", req.params);
-    console.log("🔎 Body:", req.body);
-
-    const { id } = req.params;
-    let { nombre, email, password } = req.body; // 👈 quitamos tipo_usuario del body
-
+// =============================
+// Obtener todos los usuarios
+// =============================
+router.get("/", async (req, res) => {
     try {
-        // 🔐 Validación: solo el dueño puede editar su perfil
-        if (req.user.id != id) {
-            return res.status(403).json({ error: "No puedes editar otro usuario" });
+        const [rows] = await pool.query("SELECT * FROM usuarios");
+        res.json(rows);
+    } catch (err) {
+        console.error("❌ Error al obtener usuarios:", err);
+        res.status(500).json({ error: "Error al obtener usuarios" });
+    }
+});
+
+// =============================
+// Obtener un usuario por ID
+// =============================
+router.get("/:id", async (req, res) => {
+    try {
+        const [rows] = await pool.query("SELECT * FROM usuarios WHERE usuario_id = ?", [req.params.id]);
+
+        if (rows.length === 0) {
+            return res.status(404).json({ error: "Usuario no encontrado" });
         }
 
-        if (!password || password === "undefined" || password.trim() === "") {
-            const [result] = await pool.query(
-                "UPDATE usuarios SET nombre=?, email=? WHERE id=?",
-                [nombre, email, id]
-            );
+        res.json(rows[0]);
+    } catch (err) {
+        console.error("❌ Error al obtener usuario:", err);
+        res.status(500).json({ error: "Error al obtener usuario" });
+    }
+});
 
-            if (result.affectedRows === 0) {
-                return res.status(404).json({ error: "Usuario no encontrado" });
-            }
+// =============================
+// Crear un nuevo usuario
+// =============================
+router.post("/", async (req, res) => {
+    try {
+        const { nombre, email, password, tipo_usuario } = req.body;
 
-            const [rows] = await pool.query(
-                "SELECT id, nombre, email, tipo_usuario FROM usuarios WHERE id=?",
-                [id]
-            );
-
-            return res.json({
-                message: "Usuario actualizado (sin cambiar contraseña)",
-                user: rows[0],
-            });
+        if (!nombre || !email || !password) {
+            return res.status(400).json({ error: "Faltan datos obligatorios" });
         }
-
-        // 🔐 Encriptar si se cambia contraseña
-        const hashedPassword = await bcrypt.hash(password, 10);
 
         const [result] = await pool.query(
-            "UPDATE usuarios SET nombre=?, email=?, password=? WHERE id=?",
-            [nombre, email, hashedPassword, id]
+            "INSERT INTO usuarios (nombre, email, password, tipo_usuario) VALUES (?, ?, ?, ?)",
+            [nombre, email, password, tipo_usuario || "Cliente"]
+        );
+
+        res.status(201).json({ usuario_id: result.insertId, nombre, email, tipo_usuario });
+    } catch (err) {
+        console.error("❌ Error al crear usuario:", err);
+        res.status(500).json({ error: "Error al crear usuario" });
+    }
+});
+
+// =============================
+// Actualizar usuario
+// =============================
+router.put("/:id", authMiddleware, async (req, res) => {
+    try {
+        const { nombre, email, password, tipo_usuario } = req.body;
+
+        const [result] = await pool.query(
+            "UPDATE usuarios SET nombre = ?, email = ?, password = ?, tipo_usuario = ? WHERE usuario_id = ?",
+            [nombre, email, password, tipo_usuario, req.params.id]
         );
 
         if (result.affectedRows === 0) {
             return res.status(404).json({ error: "Usuario no encontrado" });
         }
 
-        const [rows] = await pool.query(
-            "SELECT id, nombre, email, tipo_usuario FROM usuarios WHERE id=?",
-            [id]
-        );
-
-        res.json({
-            message: "Usuario actualizado con nueva contraseña",
-            user: rows[0],
-        });
+        res.json({ mensaje: "Usuario actualizado correctamente" });
     } catch (err) {
-        console.error("❌ Error en PUT /usuarios/:id:", err);
+        console.error("❌ Error al actualizar usuario:", err);
         res.status(500).json({ error: "Error al actualizar usuario" });
+    }
+});
+
+// =============================
+// Eliminar usuario
+// =============================
+router.delete("/:id", authMiddleware, async (req, res) => {
+    try {
+        const [result] = await pool.query("DELETE FROM usuarios WHERE usuario_id = ?", [req.params.id]);
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: "Usuario no encontrado" });
+        }
+
+        res.json({ mensaje: "Usuario eliminado correctamente" });
+    } catch (err) {
+        console.error("❌ Error al eliminar usuario:", err);
+        res.status(500).json({ error: "Error al eliminar usuario" });
     }
 });
 
