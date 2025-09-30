@@ -13,10 +13,7 @@ const app = express();
 // =============================
 
 // ✅ Configuración de CORS
-app.use(cors({
-    origin: "http://localhost:5173", // ⚠️ cámbialo a tu frontend en producción
-    credentials: true, // 👈 necesario para enviar cookies de sesión
-}));
+app.use(cors());
 
 app.use(express.json());
 
