@@ -10,7 +10,11 @@ const app = express();
 // =============================
 // Middlewares
 // =============================
-app.use(cors());
+app.use(cors({
+    origin: "*", // en producción pon aquí tu dominio frontend, ej: "https://midominio.com"
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+}));
 app.use(express.json());
 
 app.use((req, res, next) => {
