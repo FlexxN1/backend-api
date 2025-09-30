@@ -8,20 +8,32 @@ const swaggerSpec = require("./swagger");
 const app = express();
 
 // =============================
-// =============================
 // Middlewares
 // =============================
+app.use(express.json()); // primero JSON parser
+
+// ✅ Configuración única de CORS
+const allowedOrigins = [
+    "http://localhost:3000",
+    "https://tu-frontend.railway.app"
+];
 
 app.use(cors({
-    origin: ["http://localhost:3000", "https://tu-frontend.railway.app"], // 👈 agrega ambos
+    origin: allowedOrigins,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: true, // si usas cookies o sesiones
+    credentials: true,
 }));
 
+// ✅ Opcional: manejar preflight explícitamente
+app.options("*", (req, res) => {
+    res.header("Access-Control-Allow-Origin", allowedOrigins.includes(req.headers.origin) ? req.headers.origin : "");
+    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    res.sendStatus(204);
+});
 
-app.use(express.json());
-
+// Cache headers
 app.use((req, res, next) => {
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
     res.setHeader("Pragma", "no-cache");
@@ -29,7 +41,8 @@ app.use((req, res, next) => {
     res.setHeader("Surrogate-Control", "no-store");
     next();
 });
-// Documentación Swagger
+
+// Swagger
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec, { explorer: true }));
 
 // =============================
@@ -42,21 +55,19 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
     cors: {
-        origin: "*", // ⚠️ en producción usa tu frontend (ej: "http://localhost:5173")
-        methods: ["GET", "POST", "PUT", "DELETE"]
-    }
+        origin: allowedOrigins,
+        methods: ["GET", "POST", "PUT", "DELETE"],
+    },
 });
 
-// 🔥 Middleware: inyectar io en req
+// Middleware para inyectar io
 app.use((req, res, next) => {
     req.io = io;
     next();
 });
 
-// Evento de conexión
 io.on("connection", (socket) => {
     console.log("🟢 Cliente conectado:", socket.id);
-
     socket.on("disconnect", () => {
         console.log("🔴 Cliente desconectado:", socket.id);
     });
@@ -65,29 +76,17 @@ io.on("connection", (socket) => {
 // =============================
 // Rutas
 // =============================
-const authRoutes = require("./routes/auth");
-const usuariosRoutes = require("./routes/usuarios");
-const productosRoutes = require("./routes/productos");
-const productsAuthRoutes = require("./routes/productsAuth");
-const comprasRoutes = require("./routes/compras");
-const detalleComprasRoutes = require("./routes/detalleCompras");
-
 app.get("/", (req, res) => res.send("🚀 API funcionando correctamente"));
 
-app.use("/auth", authRoutes);
-app.use("/productos", productosRoutes);
-app.use("/productos-auth", productsAuthRoutes);
-app.use("/usuarios", usuariosRoutes);
-app.use("/compras", comprasRoutes);
-app.use("/detalle-compras", detalleComprasRoutes);
+app.use("/auth", require("./routes/auth"));
+app.use("/productos", require("./routes/productos"));
+app.use("/productos-auth", require("./routes/productsAuth"));
+app.use("/usuarios", require("./routes/usuarios"));
+app.use("/compras", require("./routes/compras"));
+app.use("/detalle-compras", require("./routes/detalleCompras"));
 
-// =============================
 // 404
-// =============================
 app.use((req, res) => res.status(404).json({ error: "Ruta no encontrada" }));
-
-// Exportamos io por si lo necesitas en otro módulo
-module.exports = { app, server, io };
 
 // =============================
 // Levantar servidor
