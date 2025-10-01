@@ -155,13 +155,13 @@ router.put("/detalle/:id/estado-envio", requireAuth(), async (req, res) => {
         );
         if (result.affectedRows === 0) return res.status(404).json({ error: "Detalle no encontrado" });
 
-        // 🔥 Emitir cambio de estado
+        // 🔥 Emitir cambio de estado (para actualizar en tiempo real en el front)
         req.io.emit("estadoEnvioActualizado", {
             detalleId: parseInt(id),
             nuevoEstado: estado_envio,
         });
 
-        // Si está entregado, revisamos la compra completa
+        // Si este detalle pasó a entregado, verificamos si la compra entera ya está entregada
         if (estado_envio === "Entregado") {
             const [[detalle]] = await pool.query(
                 "SELECT compra_id FROM detalle_compras WHERE id=?",
@@ -170,17 +170,13 @@ router.put("/detalle/:id/estado-envio", requireAuth(), async (req, res) => {
 
             if (detalle) {
                 const [[pendientes]] = await pool.query(
-                    "SELECT COUNT(*) AS pendientes FROM detalle_compras WHERE compra_id=? AND estado_envio!='Entregado'",
-                    [detalle.compra_id]
+                    "SELECT COUNT(*) AS pendientes FROM detalle_compras WHERE compra_id =? AND estado_envio != 'Entregado'",
+                [detalle.compra_id]
                 );
 
+                // Si ya no hay pendientes, emitimos que la compra está cerrada
                 if (pendientes.pendientes === 0) {
-                    await pool.query(
-                        "UPDATE compras SET estado_pago='Entregado' WHERE id=?",
-                        [detalle.compra_id]
-                    );
-
-                    req.io.emit("compraFinalizada", { compraId: detalle.compra_id });
+                    req.io.emit("compraCompletada", { compraId: detalle.compra_id });
                 }
             }
         }
@@ -191,6 +187,8 @@ router.put("/detalle/:id/estado-envio", requireAuth(), async (req, res) => {
         res.status(500).json({ error: "Error al actualizar estado de envío" });
     }
 });
+
+
 
 
 module.exports = router;
