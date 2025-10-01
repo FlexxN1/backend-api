@@ -176,7 +176,7 @@ router.put("/detalle/:id/estado-envio", requireAuth(), async (req, res) => {
 
                 if (pendientes.pendientes === 0) {
                     await pool.query(
-                        "UPDATE compras SET estado_pago='Finalizado' WHERE id=?",
+                        "UPDATE compras SET estado_pago='Entregado' WHERE id=?",
                         [detalle.compra_id]
                     );
 
