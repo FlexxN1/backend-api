@@ -76,6 +76,7 @@ router.get("/:id", requireAuth(), async (req, res) => {
 });
 
 // POST crear compra con detalles (ahora exige auth y usa req.user.id)
+// POST crear compra con detalles
 router.post("/", requireAuth(), async (req, res) => {
     const user = req.user;
     const { total, ciudad, direccion, telefono, metodo_pago, productos, estado_pago } = req.body;
@@ -86,22 +87,25 @@ router.post("/", requireAuth(), async (req, res) => {
     try {
         const [compraResult] = await conn.query(
             `INSERT INTO compras (usuario_id, total, ciudad, direccion, telefono, metodo_pago, estado_pago)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
             [user.id, total, ciudad, direccion, telefono, metodo_pago, estado_pago || "pendiente"]
         );
 
         const compraId = compraResult.insertId;
 
         for (let p of productos) {
-            const [[producto]] = await conn.query("SELECT stock FROM productos WHERE id=? FOR UPDATE", [p.id]);
+            const [[producto]] = await conn.query(
+                "SELECT stock FROM productos WHERE id=? FOR UPDATE",
+                [p.id]
+            );
 
             if (!producto) throw new Error(`❌ Producto con id ${p.id} no existe`);
             if (producto.stock < p.cantidad) throw new Error(`❌ Stock insuficiente para el producto ID ${p.id}`);
 
             await conn.query(
                 `INSERT INTO detalle_compras 
-         (compra_id, producto_id, cantidad, precio_unitario, estado_envio) 
-         VALUES (?, ?, ?, ?, ?)`,
+                 (compra_id, producto_id, cantidad, precio_unitario, estado_envio) 
+                 VALUES (?, ?, ?, ?, ?)`,
                 [compraId, p.id, p.cantidad || 1, p.precio, "Pendiente"]
             );
 
@@ -110,17 +114,12 @@ router.post("/", requireAuth(), async (req, res) => {
 
         await conn.commit();
 
-        // emitir evento global o por admins/vendedores según lo necesites
-        // ejemplo: notificar a vendedores (su sala admin-<vendedor_id>) que tienen nueva orden
-        // recorrer productos para obtener vendedores y emitir
-        for (let p of productos) {
-            // emitir por sala del vendedor
-            req.io.to(`admin-${p.vendedorId || p.vendedor_id || p.vendedor}`).emit("nueva-orden", {
-                compraId,
-                productoId: p.id,
-                cantidad: p.cantidad || 1,
-            });
-        }
+        // 🔥 Emitir evento global (todos los admins conectados lo reciben)
+        req.io.emit("nuevaCompra", {
+            compraId,
+            usuarioId: user.id,
+            productos
+        });
 
         res.json({ message: "✅ Compra creada con éxito", compra_id: compraId });
     } catch (err) {
@@ -131,6 +130,7 @@ router.post("/", requireAuth(), async (req, res) => {
         conn.release();
     }
 });
+
 
 // PUT actualizar compra, DELETE, etc... (añadir requireAuth() cuando corresponda)
 router.put("/:id", requireAuth(), async (req, res) => {
