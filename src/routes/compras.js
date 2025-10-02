@@ -23,6 +23,7 @@ router.get("/", requireAuth(), async (req, res) => {
         dc.producto_id,
         p.nombre AS producto_nombre,
         p.vendedor_id,
+        p.stock,
         dc.cantidad,
         dc.precio_unitario,
         dc.estado_envio
