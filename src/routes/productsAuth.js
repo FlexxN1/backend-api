@@ -37,10 +37,16 @@ router.post("/", async (req, res) => {
             return res.status(401).json({ error: "No autenticado" });
         }
 
-        const { nombre, descripcion, precio, stock = 0, imagen_url } = req.body;
+        const { nombre, descripcion, precio, stock, imagen_url } = req.body;
 
+        // Validaciones
         if (!nombre || !precio) {
             return res.status(400).json({ error: "Nombre y precio requeridos" });
+        }
+
+        // Stock obligatorio y mayor a 0
+        if (stock == null || isNaN(stock) || stock <= 0) {
+            return res.status(400).json({ error: "El stock inicial es obligatorio y debe ser mayor que 0" });
         }
 
         const vendedor_id = req.user.id;
