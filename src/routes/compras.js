@@ -58,7 +58,8 @@ router.get("/", requireAuth(), async (req, res) => {
                 cantidad: row.cantidad,
                 precio_unitario: row.precio_unitario,
                 estado_envio: row.estado_envio,
-                vendedor_id: row.vendedor_id
+                vendedor_id: row.vendedor_id,
+                stock: row.stock
             });
             return acc;
         }, []);
