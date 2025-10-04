@@ -23,6 +23,27 @@ router.get('/', async (req, res) => {
     }
 });
 
+// Últimos 5 productos (solo la primera imagen)
+router.get('/ultimos', async (req, res) => {
+    try {
+        const [rows] = await pool.execute(
+            `SELECT p.id, p.nombre, p.precio, 
+                    (SELECT ip.url 
+                     FROM imagenes_producto ip 
+                     WHERE ip.producto_id = p.id 
+                     LIMIT 1) as imagen
+             FROM productos p
+             ORDER BY p.fecha_creacion DESC
+             LIMIT 5`
+        );
+        res.json(rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Error al traer últimos productos' });
+    }
+});
+
+
 
 
 module.exports = router;
