@@ -8,6 +8,7 @@ const swaggerSpec = require("./swagger");
 const http = require("http");
 const { Server } = require("socket.io");
 const jwt = require("jsonwebtoken");
+import { swaggerUi, swaggerDocs } from "./swagger.js";
 
 const app = express();
 
@@ -43,8 +44,8 @@ app.use((req, res, next) => {
 });
 
 // Documentación Swagger
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec, { explorer: true }));
 
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 // =============================
 // Crear servidor HTTP + Socket.IO
 // =============================
