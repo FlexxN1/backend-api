@@ -1,24 +1,27 @@
-// src/swagger.js
-const swaggerJSDoc = require("swagger-jsdoc");
+// swagger.js
+const swaggerJsDoc = require("swagger-jsdoc");
+const swaggerUi = require("swagger-ui-express");
 
-const options = {
+const swaggerOptions = {
     definition: {
-        openapi: "3.0.3",
+        openapi: "3.0.0",
         info: {
             title: "BiteBack API",
             version: "1.0.0",
-            description: "API REST para BiteBack (usuarios, productos, compras, detalle_compras)",
+            description: "Documentación de la API para la tienda BiteBack",
         },
         servers: [
-            { url: process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}` }
+            {
+                url: "http://localhost:4000/api", // Cambia a Railway/Netlify en producción
+            },
         ],
         components: {
             securitySchemes: {
                 bearerAuth: {
                     type: "http",
                     scheme: "bearer",
-                    bearerFormat: "JWT"
-                }
+                    bearerFormat: "JWT",
+                },
             },
             schemas: {
                 Usuario: {
@@ -27,131 +30,95 @@ const options = {
                         id: { type: "integer", example: 1 },
                         nombre: { type: "string", example: "Juan Pérez" },
                         email: { type: "string", example: "juan@example.com" },
-                        tipo_usuario: { type: "string", enum: ["Cliente", "Administrador"], example: "Cliente" },
-                        fecha_registro: { type: "string", format: "date-time" }
-                    }
-                },
-                UsuarioCreate: {
-                    type: "object",
-                    required: ["nombre", "email", "password", "tipo_usuario"],
-                    properties: {
-                        nombre: { type: "string" },
-                        email: { type: "string", format: "email" },
-                        password: { type: "string" },
-                        tipo_usuario: { type: "string", enum: ["Usuario", "Administrador"] }
-                    }
+                        password: { type: "string", example: "hashedpassword123" },
+                        rol: { type: "string", example: "cliente" },
+                    },
                 },
                 Producto: {
                     type: "object",
                     properties: {
-                        id: { type: "integer", example: 1 },
-                        nombre: { type: "string", example: "Aguacate Hass" },
-                        descripcion: { type: "string" },
-                        precio: { type: "number", example: 5000 },
-                        imagen_url: { type: "string", format: "uri" },
-                        stock: { type: "integer", example: 100 },
-                        vendedor_id: { type: "integer" },
-                        fecha_creacion: { type: "string", format: "date-time" }
-                    }
-                },
-                ProductoCreate: {
-                    type: "object",
-                    required: ["nombre", "precio", "vendedor_id"],
-                    properties: {
-                        nombre: { type: "string" },
-                        descripcion: { type: "string" },
-                        precio: { type: "number" },
-                        stock: { type: "integer" },
-                        vendedor_id: { type: "integer" },
-                        imagen_url: { type: "string" }
-                    }
+                        id: { type: "integer", example: 10 },
+                        nombre: { type: "string", example: "Camiseta BiteBack" },
+                        descripcion: { type: "string", example: "Camiseta de algodón" },
+                        precio: { type: "number", example: 59.99 },
+                        stock: { type: "integer", example: 20 },
+                    },
                 },
                 Compra: {
                     type: "object",
                     properties: {
-                        id: { type: "integer" },
-                        usuario_id: { type: "integer" },
-                        fecha_compra: { type: "string", format: "date-time" },
-                        total: { type: "number" },
-                        ciudad: { type: "string" },
-                        direccion: { type: "string" },
-                        telefono: { type: "string" },
-                        estado: { type: "string", enum: ["pendiente", "pagado", "enviado", "cancelado"] }
-                    }
-                },
-                CompraCreate: {
-                    type: "object",
-                    required: ["usuario_id", "total", "ciudad", "direccion"],
-                    properties: {
-                        usuario_id: { type: "integer" },
-                        total: { type: "number" },
-                        ciudad: { type: "string" },
-                        direccion: { type: "string" },
-                        telefono: { type: "string" },
-                        estado: { type: "string" }
-                    }
+                        compra_id: { type: "integer", example: 101 },
+                        usuario_id: { type: "integer", example: 1 },
+                        total: { type: "number", example: 200000 },
+                        ciudad: { type: "string", example: "Cali" },
+                        direccion: { type: "string", example: "Calle 123 #45-67" },
+                        telefono: { type: "string", example: "3001234567" },
+                        estado_pago: { type: "string", example: "pendiente" },
+                        estado_envio: { type: "string", example: "Pendiente" },
+                        productos: {
+                            type: "array",
+                            items: {
+                                type: "object",
+                                properties: {
+                                    id: { type: "integer", example: 10 },
+                                    cantidad: { type: "integer", example: 2 },
+                                    precio: { type: "number", example: 59.99 },
+                                },
+                            },
+                        },
+                    },
                 },
                 DetalleCompra: {
                     type: "object",
                     properties: {
-                        id: { type: "integer" },
-                        compra_id: { type: "integer" },
-                        producto_id: { type: "integer" },
-                        cantidad: { type: "integer" },
-                        precio_unitario: { type: "number" }
-                    }
-                },
-                AuthRegister: {
-                    type: "object",
-                    required: ["nombre", "email", "password", "tipoUsuario"],
-                    properties: {
-                        nombre: { type: "string" },
-                        email: { type: "string", format: "email" },
-                        password: { type: "string" },
-                        tipoUsuario: { type: "string", enum: ["Usuario", "Administrador"] }
-                    }
+                        detalle_id: { type: "integer", example: 1 },
+                        compra_id: { type: "integer", example: 101 },
+                        producto_id: { type: "integer", example: 10 },
+                        cantidad: { type: "integer", example: 2 },
+                        precio: { type: "number", example: 59.99 },
+                    },
                 },
                 AuthLogin: {
                     type: "object",
-                    required: ["email", "password"],
                     properties: {
-                        email: { type: "string", format: "email" },
-                        password: { type: "string" }
-                    }
+                        email: { type: "string", example: "juan@example.com" },
+                        password: { type: "string", example: "123456" },
+                    },
                 },
-                TokenResponse: {
+                AuthResponse: {
                     type: "object",
                     properties: {
-                        token: { type: "string" },
-                        user: { $ref: "#/components/schemas/Usuario" }
-                    }
-                }
-            }
-        }
+                        token: { type: "string", example: "eyJhbGciOi..." },
+                    },
+                },
+            },
+        },
     },
-    apis: [] // no usamos comentarios en archivos; definimos rutas manualmente abajo
+    apis: [],
 };
 
-const swaggerSpec = swaggerJSDoc(options);
+const swaggerDocs = swaggerJsDoc(swaggerOptions);
 
-// Añadir paths manualmente (más claro y completo)
-swaggerSpec.paths = {
+// Definición de rutas (Paths)
+swaggerOptions.definition.paths = {
+    // ================= AUTH =================
     "/auth/register": {
         post: {
             tags: ["Auth"],
-            summary: "Registrar usuario",
+            summary: "Registrar nuevo usuario",
             requestBody: {
                 required: true,
                 content: {
-                    "application/json": { schema: { $ref: "#/components/schemas/AuthRegister" } }
-                }
+                    "application/json": {
+                        schema: { $ref: "#/components/schemas/Usuario" },
+                    },
+                },
             },
             responses: {
-                "200": { description: "Usuario creado", content: { "application/json": { schema: { $ref: "#/components/schemas/TokenResponse" } } } },
-                "400": { description: "Faltan datos / tipo inválido", content: { "application/json": { schema: { type: "object", properties: { error: { type: "string" } } } } } },
-                "409": { description: "Email ya registrado", content: { "application/json": { schema: { type: "object", properties: { error: { type: "string" } } } } } }
-            }
-        }
+                201: { description: "Usuario registrado" },
+                400: { description: "Error en validación" },
+            },
+        },
     },
     "/auth/login": {
         post: {
@@ -160,96 +127,268 @@ swaggerSpec.paths = {
             requestBody: {
                 required: true,
                 content: {
-                    "application/json": { schema: { $ref: "#/components/schemas/AuthLogin" } }
-                }
+                    "application/json": {
+                        schema: { $ref: "#/components/schemas/AuthLogin" },
+                    },
+                },
             },
             responses: {
-                "200": { description: "Login ok", content: { "application/json": { schema: { $ref: "#/components/schemas/TokenResponse" } } } },
-                "401": { description: "Credenciales inválidas" }
-            }
-        }
+                200: {
+                    description: "Login exitoso",
+                    content: {
+                        "application/json": {
+                            schema: { $ref: "#/components/schemas/AuthResponse" },
+                        },
+                    },
+                },
+                401: { description: "Credenciales inválidas" },
+            },
+        },
     },
 
+    // ================= USUARIOS =================
     "/usuarios": {
         get: {
             tags: ["Usuarios"],
-            summary: "Listar todos los usuarios",
+            summary: "Obtener todos los usuarios",
+            security: [{ bearerAuth: [] }],
             responses: {
-                "200": { description: "Lista usuarios", content: { "application/json": { schema: { type: "array", items: { $ref: "#/components/schemas/Usuario" } } } } }
-            }
+                200: { description: "Lista de usuarios" },
+            },
         },
         post: {
             tags: ["Usuarios"],
-            summary: "Crear usuario (admin)",
-            security: [{ bearerAuth: [] }],
+            summary: "Crear un nuevo usuario",
             requestBody: {
                 required: true,
-                content: { "application/json": { schema: { $ref: "#/components/schemas/UsuarioCreate" } } }
+                content: {
+                    "application/json": {
+                        schema: { $ref: "#/components/schemas/Usuario" },
+                    },
+                },
             },
             responses: {
-                "200": { description: "Usuario creado" },
-                "401": { description: "No autorizado" }
-            }
-        }
+                201: { description: "Usuario creado" },
+            },
+        },
+    },
+    "/usuarios/{id}": {
+        get: {
+            tags: ["Usuarios"],
+            summary: "Obtener un usuario por ID",
+            parameters: [
+                { name: "id", in: "path", required: true, schema: { type: "integer" } },
+            ],
+            responses: { 200: { description: "Usuario encontrado" } },
+        },
+        put: {
+            tags: ["Usuarios"],
+            summary: "Actualizar un usuario",
+            security: [{ bearerAuth: [] }],
+            parameters: [
+                { name: "id", in: "path", required: true, schema: { type: "integer" } },
+            ],
+            requestBody: {
+                required: true,
+                content: {
+                    "application/json": {
+                        schema: { $ref: "#/components/schemas/Usuario" },
+                    },
+                },
+            },
+            responses: { 200: { description: "Usuario actualizado" } },
+        },
+        delete: {
+            tags: ["Usuarios"],
+            summary: "Eliminar un usuario",
+            security: [{ bearerAuth: [] }],
+            parameters: [
+                { name: "id", in: "path", required: true, schema: { type: "integer" } },
+            ],
+            responses: { 204: { description: "Usuario eliminado" } },
+        },
     },
 
+    // ================= PRODUCTOS =================
     "/productos": {
         get: {
             tags: ["Productos"],
-            summary: "Listar productos",
-            responses: {
-                "200": { description: "Lista productos", content: { "application/json": { schema: { type: "array", items: { $ref: "#/components/schemas/Producto" } } } } }
-            }
+            summary: "Obtener todos los productos",
+            responses: { 200: { description: "Lista de productos" } },
         },
         post: {
             tags: ["Productos"],
-            summary: "Crear producto (admin)",
+            summary: "Crear un nuevo producto",
             security: [{ bearerAuth: [] }],
             requestBody: {
                 required: true,
-                content: { "application/json": { schema: { $ref: "#/components/schemas/ProductoCreate" } } }
+                content: {
+                    "application/json": {
+                        schema: { $ref: "#/components/schemas/Producto" },
+                    },
+                },
             },
-            responses: {
-                "200": { description: "Producto creado" },
-                "401": { description: "No autorizado" }
-            }
-        }
+            responses: { 201: { description: "Producto creado" } },
+        },
+    },
+    "/productos/{id}": {
+        get: {
+            tags: ["Productos"],
+            summary: "Obtener producto por ID",
+            parameters: [
+                { name: "id", in: "path", required: true, schema: { type: "integer" } },
+            ],
+            responses: { 200: { description: "Producto encontrado" } },
+        },
+        put: {
+            tags: ["Productos"],
+            summary: "Actualizar producto",
+            security: [{ bearerAuth: [] }],
+            parameters: [
+                { name: "id", in: "path", required: true, schema: { type: "integer" } },
+            ],
+            requestBody: {
+                required: true,
+                content: {
+                    "application/json": {
+                        schema: { $ref: "#/components/schemas/Producto" },
+                    },
+                },
+            },
+            responses: { 200: { description: "Producto actualizado" } },
+        },
+        delete: {
+            tags: ["Productos"],
+            summary: "Eliminar producto",
+            security: [{ bearerAuth: [] }],
+            parameters: [
+                { name: "id", in: "path", required: true, schema: { type: "integer" } },
+            ],
+            responses: { 204: { description: "Producto eliminado" } },
+        },
     },
 
+    // ================= COMPRAS =================
     "/compras": {
         get: {
             tags: ["Compras"],
-            summary: "Listar compras",
-            responses: { "200": { description: "Lista compras" } }
+            summary: "Obtener todas las compras",
+            security: [{ bearerAuth: [] }],
+            responses: { 200: { description: "Lista de compras" } },
         },
         post: {
             tags: ["Compras"],
-            summary: "Crear compra",
+            summary: "Crear nueva compra",
             security: [{ bearerAuth: [] }],
             requestBody: {
                 required: true,
-                content: { "application/json": { schema: { $ref: "#/components/schemas/CompraCreate" } } }
+                content: {
+                    "application/json": {
+                        schema: { $ref: "#/components/schemas/Compra" },
+                    },
+                },
             },
-            responses: { "200": { description: "Compra creada" }, "401": { description: "No autorizado" } }
-        }
+            responses: { 201: { description: "Compra creada" } },
+        },
+    },
+    "/compras/{id}": {
+        get: {
+            tags: ["Compras"],
+            summary: "Obtener compra por ID",
+            parameters: [
+                { name: "id", in: "path", required: true, schema: { type: "integer" } },
+            ],
+            security: [{ bearerAuth: [] }],
+            responses: { 200: { description: "Compra encontrada" } },
+        },
+        put: {
+            tags: ["Compras"],
+            summary: "Actualizar compra",
+            parameters: [
+                { name: "id", in: "path", required: true, schema: { type: "integer" } },
+            ],
+            security: [{ bearerAuth: [] }],
+            requestBody: {
+                required: true,
+                content: {
+                    "application/json": {
+                        schema: { $ref: "#/components/schemas/Compra" },
+                    },
+                },
+            },
+            responses: { 200: { description: "Compra actualizada" } },
+        },
+        delete: {
+            tags: ["Compras"],
+            summary: "Eliminar compra",
+            parameters: [
+                { name: "id", in: "path", required: true, schema: { type: "integer" } },
+            ],
+            security: [{ bearerAuth: [] }],
+            responses: { 204: { description: "Compra eliminada" } },
+        },
     },
 
-    "/detalle-compras": {
+    // ================= DETALLE COMPRAS =================
+    "/detalle_compras": {
         get: {
             tags: ["DetalleCompras"],
-            summary: "Listar detalle de compras",
-            responses: { "200": { description: "Lista detalle compras" } }
+            summary: "Obtener todos los detalles de compras",
+            security: [{ bearerAuth: [] }],
+            responses: { 200: { description: "Lista de detalles" } },
         },
         post: {
             tags: ["DetalleCompras"],
-            summary: "Crear detalle de compra",
+            summary: "Agregar detalle de compra",
+            security: [{ bearerAuth: [] }],
             requestBody: {
                 required: true,
-                content: { "application/json": { schema: { $ref: "#/components/schemas/DetalleCompra" } } }
+                content: {
+                    "application/json": {
+                        schema: { $ref: "#/components/schemas/DetalleCompra" },
+                    },
+                },
             },
-            responses: { "200": { description: "Detalle creado" } }
-        }
-    }
+            responses: { 201: { description: "Detalle creado" } },
+        },
+    },
+    "/detalle_compras/{id}": {
+        get: {
+            tags: ["DetalleCompras"],
+            summary: "Obtener detalle por ID",
+            parameters: [
+                { name: "id", in: "path", required: true, schema: { type: "integer" } },
+            ],
+            security: [{ bearerAuth: [] }],
+            responses: { 200: { description: "Detalle encontrado" } },
+        },
+        put: {
+            tags: ["DetalleCompras"],
+            summary: "Actualizar detalle",
+            parameters: [
+                { name: "id", in: "path", required: true, schema: { type: "integer" } },
+            ],
+            security: [{ bearerAuth: [] }],
+            requestBody: {
+                required: true,
+                content: {
+                    "application/json": {
+                        schema: { $ref: "#/components/schemas/DetalleCompra" },
+                    },
+                },
+            },
+            responses: { 200: { description: "Detalle actualizado" } },
+        },
+        delete: {
+            tags: ["DetalleCompras"],
+            summary: "Eliminar detalle",
+            parameters: [
+                { name: "id", in: "path", required: true, schema: { type: "integer" } },
+            ],
+            security: [{ bearerAuth: [] }],
+            responses: { 204: { description: "Detalle eliminado" } },
+        },
+    },
 };
 
-module.exports = swaggerSpec;
+module.exports = { swaggerUi, swaggerDocs };
