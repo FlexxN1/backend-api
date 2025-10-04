@@ -1,39 +1,38 @@
-// routes/compras.js
 const express = require("express");
 const pool = require("../db");
 const router = express.Router();
 const requireAuth = require("../middlewares/auth");
 
-// GET todas las compras (agrupadas con productos)
+// ========================
+// GET todas las compras
+// ========================
 router.get("/", requireAuth(), async (req, res) => {
-    // ... (mantengo el mismo SQL)
     try {
         const [rows] = await pool.query(`
-      SELECT 
-        c.id AS compra_id,
-        c.usuario_id,
-        u.nombre AS usuario_nombre,
-        DATE_FORMAT(c.fecha_compra, '%Y-%m-%d %H:%i:%s') AS fecha_compra,
-        c.ciudad,
-        c.direccion,
-        c.telefono,
-        c.total,
-        c.estado_pago,
-        dc.id AS detalle_id,
-        dc.producto_id,
-        p.nombre AS producto_nombre,
-        p.vendedor_id,
-        p.stock,
-        dc.cantidad,
-        dc.precio_unitario,
-        dc.estado_envio
-      FROM compras c
-      INNER JOIN usuarios u ON c.usuario_id = u.id
-      INNER JOIN detalle_compras dc ON c.id = dc.compra_id
-      INNER JOIN productos p ON dc.producto_id = p.id
-    `);
+        SELECT 
+            c.id AS compra_id,
+            c.usuario_id,
+            u.nombre AS usuario_nombre,
+            DATE_FORMAT(c.fecha_compra, '%Y-%m-%d %H:%i:%s') AS fecha_compra,
+            c.ciudad,
+            c.direccion,
+            c.telefono,
+            c.total,
+            c.estado_pago,
+            dc.id AS detalle_id,
+            dc.producto_id,
+            p.nombre AS producto_nombre,
+            p.vendedor_id,
+            p.stock,
+            dc.cantidad,
+            dc.precio_unitario,
+            dc.estado_envio
+        FROM compras c
+        INNER JOIN usuarios u ON c.usuario_id = u.id
+        INNER JOIN detalle_compras dc ON c.id = dc.compra_id
+        INNER JOIN productos p ON dc.producto_id = p.id
+        `);
 
-        // agrupar como antes...
         const compras = rows.reduce((acc, row) => {
             let compra = acc.find(c => c.compra_id === row.compra_id);
             if (!compra) {
@@ -71,14 +70,9 @@ router.get("/", requireAuth(), async (req, res) => {
     }
 });
 
-// GET compra por ID
-router.get("/:id", requireAuth(), async (req, res) => {
-    // idem a tu implementación previa, con requireAuth()
-    // ...
-});
-
-// POST crear compra con detalles (ahora exige auth y usa req.user.id)
-// POST crear compra con detalles
+// ========================
+// POST crear compra
+// ========================
 router.post("/", requireAuth(), async (req, res) => {
     const user = req.user;
     const { total, ciudad, direccion, telefono, metodo_pago, productos, estado_pago } = req.body;
@@ -101,8 +95,8 @@ router.post("/", requireAuth(), async (req, res) => {
                 [p.id]
             );
 
-            if (!producto) throw new Error(`❌ Producto con id ${p.id} no existe`);
-            if (producto.stock < p.cantidad) throw new Error(`❌ Stock insuficiente para el producto ID ${p.id}`);
+            if (!producto) throw new Error(`Producto con id ${p.id} no existe`);
+            if (producto.stock < p.cantidad) throw new Error(`Stock insuficiente para el producto ID ${p.id}`);
 
             await conn.query(
                 `INSERT INTO detalle_compras 
@@ -116,13 +110,7 @@ router.post("/", requireAuth(), async (req, res) => {
 
         await conn.commit();
 
-        // 🔥 Emitir evento global (todos los admins conectados lo reciben)
-        req.io.emit("nuevaCompra", {
-            compraId,
-            usuarioId: user.id,
-            productos
-        });
-
+        req.io.emit("nuevaCompra", { compraId, usuarioId: user.id, productos });
         res.json({ message: "✅ Compra creada con éxito", compra_id: compraId });
     } catch (err) {
         await conn.rollback();
@@ -133,19 +121,30 @@ router.post("/", requireAuth(), async (req, res) => {
     }
 });
 
-
-// PUT actualizar compra, DELETE, etc... (añadir requireAuth() cuando corresponda)
-router.put("/:id", requireAuth(), async (req, res) => {
-    // ...
-});
-
-// PUT estado-pago
+// ========================
+// PUT estado-pago (nuevo)
+// ========================
 router.put("/:id/estado-pago", requireAuth(), async (req, res) => {
-    // ...
+    const { id } = req.params;
+    const { estado_pago } = req.body;
+
+    try {
+        const [result] = await pool.query("UPDATE compras SET estado_pago = ? WHERE id = ?", [estado_pago, id]);
+
+        if (result.affectedRows === 0)
+            return res.status(404).json({ error: "Compra no encontrada" });
+
+        req.io.emit("estadoPagoActualizado", { compraId: id, estado_pago });
+        res.json({ message: "✅ Estado de pago actualizado" });
+    } catch (err) {
+        console.error("❌ Error actualizando estado de pago:", err);
+        res.status(500).json({ error: "Error al actualizar estado de pago" });
+    }
 });
 
-// PUT estado-envio en detalle: mantiene io.emit
-// PUT estado-envio en detalle
+// ========================
+// PUT estado-envio detalle
+// ========================
 router.put("/detalle/:id/estado-envio", requireAuth(), async (req, res) => {
     const { id } = req.params;
     const { estado_envio } = req.body;
@@ -155,33 +154,13 @@ router.put("/detalle/:id/estado-envio", requireAuth(), async (req, res) => {
             "UPDATE detalle_compras SET estado_envio=? WHERE id=?",
             [estado_envio, id]
         );
-        if (result.affectedRows === 0) return res.status(404).json({ error: "Detalle no encontrado" });
+        if (result.affectedRows === 0)
+            return res.status(404).json({ error: "Detalle no encontrado" });
 
-        // 🔥 Emitir cambio de estado (para actualizar en tiempo real en el front)
         req.io.emit("estadoEnvioActualizado", {
             detalleId: parseInt(id),
             nuevoEstado: estado_envio,
         });
-
-        // Si este detalle pasó a entregado, verificamos si la compra entera ya está entregada
-        if (estado_envio === "Entregado") {
-            const [[detalle]] = await pool.query(
-                "SELECT compra_id FROM detalle_compras WHERE id=?",
-                [id]
-            );
-
-            if (detalle) {
-                const [[pendientes]] = await pool.query(
-                    "SELECT COUNT(*) AS pendientes FROM detalle_compras WHERE compra_id =? AND estado_envio != 'Entregado'",
-                [detalle.compra_id]
-                );
-
-                // Si ya no hay pendientes, emitimos que la compra está cerrada
-                if (pendientes.pendientes === 0) {
-                    req.io.emit("compraCompletada", { compraId: detalle.compra_id });
-                }
-            }
-        }
 
         res.json({ message: "✅ Estado de envío actualizado" });
     } catch (err) {
@@ -189,8 +168,5 @@ router.put("/detalle/:id/estado-envio", requireAuth(), async (req, res) => {
         res.status(500).json({ error: "Error al actualizar estado de envío" });
     }
 });
-
-
-
 
 module.exports = router;
