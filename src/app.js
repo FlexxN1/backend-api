@@ -2,13 +2,11 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
-const swaggerUi = require("swagger-ui-express");
-const swaggerSpec = require("./swagger");
+const { swaggerUi, swaggerDocs } = require("./swagger");
 
 const http = require("http");
 const { Server } = require("socket.io");
 const jwt = require("jsonwebtoken");
-import { swaggerUi, swaggerDocs } from "./swagger.js";
 
 const app = express();
 
@@ -43,9 +41,11 @@ app.use((req, res, next) => {
     next();
 });
 
+// =============================
 // Documentación Swagger
-
+// =============================
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocs));
+
 // =============================
 // Crear servidor HTTP + Socket.IO
 // =============================
@@ -60,9 +60,7 @@ const io = new Server(server, {
 });
 
 // =============================
-// Middleware opcional: decodificar JWT si viene en Authorization
-// - No reemplaza a tu middleware de autorización que exige roles.
-// - Solo coloca `req.user` cuando haya un token válido.
+// Middleware opcional: decodificar JWT
 // =============================
 app.use((req, res, next) => {
     const header = req.headers.authorization;
@@ -70,18 +68,15 @@ app.use((req, res, next) => {
         const token = header.split(" ")[1];
         try {
             const payload = jwt.verify(token, process.env.JWT_SECRET);
-            req.user = payload; // { id, nombre, email, tipo_usuario, iat, exp }
+            req.user = payload;
         } catch (err) {
-            // token inválido -> no rompemos la petición aquí, la validación concreta
-            // la hará el middleware que requiera auth.
-            // console.warn("JWT inválido en request:", err.message);
             req.user = null;
         }
     }
     next();
 });
 
-// 🔥 Inyectar io en req para emitir desde controladores si hace falta
+// 🔥 Inyectar io en req para emitir desde controladores
 app.use((req, res, next) => {
     req.io = io;
     next();
@@ -89,31 +84,28 @@ app.use((req, res, next) => {
 
 // =============================
 // Socket.IO: autenticar por token en handshake
-// cliente: io(url, { auth: { token }})
 // =============================
 io.use((socket, next) => {
     try {
         const token = socket.handshake.auth && socket.handshake.auth.token;
-        if (!token) return next(); // permitimos conexiones anónimas si lo deseas
+        if (!token) return next();
         const payload = jwt.verify(token, process.env.JWT_SECRET);
         socket.user = payload;
         return next();
     } catch (err) {
         console.error("Socket auth error:", err.message);
-        return next(); // opción: podrías rechazar: next(new Error("Auth error"))
+        return next();
     }
 });
 
 io.on("connection", (socket) => {
     console.log("🟢 Cliente conectado:", socket.id, "user=", socket.user?.id || "anon");
 
-    // si es admin, lo unimos a su sala
     if (socket.user && (socket.user.tipo_usuario === "Admin" || socket.user.tipo_usuario === "Administrador")) {
         socket.join(`admin-${socket.user.id}`);
     }
 
     socket.on("joinAdminRoom", (adminId) => {
-        // si el token corresponde al adminId permitimos unirse a la sala (extra seguridad)
         if (socket.user && socket.user.id === adminId) {
             socket.join(`admin-${adminId}`);
         }
